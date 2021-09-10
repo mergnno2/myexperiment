@@ -1,6 +1,12 @@
 # This code refer to the paper "Detection of slow port scans in flow-based network traffic"
 # The data set used by the above paper is also "CIDDS-001"
 # Start date: 09.09.2021
+
+import pandas as pd
+import time
+import numpy as np
+import csv
+
 def get_time(time_string):
     timeArray = time.strptime(time_string, "%Y-%m-%d %H:%M:%S.%f")
     timeStamp = float(time.mktime(timeArray))
@@ -26,12 +32,11 @@ for row in file:
 
     if isFirstrow:
         flow_data.append([])
-        flow_data[index].append(firstrow)
+        flow_data[window_index].append(firstrow)
         isFirstrow = False
-        continue
 
     end = get_time(row[0])
-
+    timeArray = time.strptime(row[0], "%Y-%m-%d %H:%M:%S.%f")
     if timeArray.tm_hour > timing:
         print(str(timeArray.tm_hour) + "o'clock")
         timing = timing + 1
@@ -42,7 +47,6 @@ for row in file:
         exit(0)
 
     flow_data[window_index].append(row)
-
 
     if end - start >= 60:
         start = end
