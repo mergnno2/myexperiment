@@ -1,5 +1,5 @@
 # This code intend to get the information about the host and their opening ports from CIDDS-001-Internal data set.
-
+import re
 import pandas as pd
 import time
 import numpy as np
