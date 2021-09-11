@@ -156,7 +156,7 @@ def count_NeTCP(srcIP, time_window):
     NeTCP = 0
     diff_target = []
     for flow in time_window:
-        if flow[2] == "ICMP": # Without considering ICMP packet.
+        if flow[2] == "ICMP":  # Without considering ICMP packet.
             continue
         if flow[3] == srcIP:
             if len(diff_target) == 0:
@@ -191,8 +191,37 @@ def hosts_per_window(time_window):
     return hosts
 
 
+def update_ratio(event):
+    ip = event.IP
+    if srcIP_ratio.get(ip) == None:
+        srcIP_ratio.update({ip: 1.0})
+    ratio = srcIP_ratio.get(ip)
+    ai = event.ICMP + event.NeIP + event.NeTCP
+    if ai > 0:
+        ratio = ratio * ai * ((1 - theta1) / (1 - theta0))
+    else:
+        ratio = ratio * (theta1 / theta0)
+    srcIP_ratio[ip] = ratio
+    return
+
+
+def detect_abnormal(event):
+    if srcIP_ratio.get(event.IP) == None:
+        return
+    else:
+        if srcIP_ratio.get(event.IP) > eita1:
+            print("abnormal caused by the host:" + event.IP)
+            srcIP_ratio[event.IP] = 1.0
+        elif srcIP_ratio.get(event.IP) < eita0:
+            # This host is considered as a normal one.
+            srcIP_ratio[event.IP] = 1.0
+        else:
+            # We can't make decision that if corresponding host is abnormal or normal.
+            pass
+    return
+
+
 def generate_network_event(time_window):
-    ICMP = RST = RwA = NeIP = NeTCP = 0
     network_events.clear()
     hosts = hosts_per_window(time_window=time_window)
     for host in hosts:
@@ -202,6 +231,10 @@ def generate_network_event(time_window):
         NeIP = count_NeIP(srcIP=host, time_window=time_window)
         NeTCP = count_NeTCP(srcIP=host, time_window=time_window)
         network_events.append(Network_Event(IP=host, ICMP=ICMP, RST=RST, RwA=RwA, NeIP=NeIP, NeTCP=NeTCP))
+        # One network event that is related to the 'host' is well generated from the given time window.
+        # Update the corresponding srcIP's ratio according to the current network event attributes.
+        update_ratio(event=network_events[-1])
+        detect_abnormal(event=network_events[-1])
     return
 
 
@@ -211,9 +244,14 @@ filepath = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\tra
 info_file = csv.reader(open(network_information_path, 'r'))
 flow_file = csv.reader(open(filepath, 'r'))
 
+srcIP_ratio = {}
 network_info = {}
 network_events = []
 flow_data = []
+theta0 = 0.8
+theta1 = 0.2
+eita0 = 0.01
+eita1 = 99
 start_bound = 0
 end_bound = 9
 
