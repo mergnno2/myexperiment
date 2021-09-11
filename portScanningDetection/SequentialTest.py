@@ -10,7 +10,7 @@ import csv
 class Host(object):
     def __init__(self,IP):
         self.IP=IP
-        self.opening_ports=[]
+        self.ports=[]
 
 class Network_Event(object):
     def __init__(self,IP):
@@ -54,11 +54,11 @@ def generate_network_event(time_window):
             pass
 
     return
-information_path = "D:\Python\Python37\myexperiment\portScanningDetection\\Network_Information.csv"
+network_information_path = "D:\Python\Python37\myexperiment\portScanningDetection\\Network_Information.csv"
 filepath = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week1.csv"
 # open the original csv data file
-info = csv.reader(open(information_path, 'r'))
-file = csv.reader(open(filepath, 'r'))
+info_file = csv.reader(open(network_information_path, 'r'))
+flow_file = csv.reader(open(filepath, 'r'))
 
 network_info = {}
 network_events = []
@@ -69,23 +69,22 @@ end_bound = 9
 timing = 0
 
 isFirstrow = True
-head = next(file)
-firstrow = next(file)
+head = next(flow_file)
+firstrow = next(flow_file)
 start = get_time(firstrow[0])
 window_index=0
 
 
-for row in info:
+for row in info_file:
     i = 1
     value = []
     while i <len(row):
         value.append(row[i])
         i = i + 1
-    item = {row[0]:value}
-    network_info.update(item)
-print("hello")
+    info_item = {row[0]:value}
+    network_info.update(info_item)
 
-for row in file:
+for row in flow_file:
 
     if isFirstrow:
         flow_data.append([])
