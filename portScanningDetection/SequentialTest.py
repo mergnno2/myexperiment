@@ -194,14 +194,15 @@ def hosts_per_window(time_window):
 def update_ratio(event):
     ip = event.IP
     if srcIP_ratio.get(ip) == None:
-        srcIP_ratio.update({ip: 1.0})
-    ratio = srcIP_ratio.get(ip)
+        item = {ip: 1.0}
+        srcIP_ratio.update(item)
+    ratio = float(srcIP_ratio.get(ip))
     ai = event.ICMP + event.NeIP + event.NeTCP
     if ai > 0:
         ratio = ratio * ai * ((1 - theta1) / (1 - theta0))
     else:
         ratio = ratio * (theta1 / theta0)
-    srcIP_ratio[ip] = ratio
+    srcIP_ratio[ip] = float(ratio)
     return
 
 
@@ -250,8 +251,8 @@ network_events = []
 flow_data = []
 theta0 = 0.8
 theta1 = 0.2
-eita0 = 0.01
-eita1 = 99
+eita0 = 0.001
+eita1 = 999
 start_bound = 0
 end_bound = 9
 
