@@ -52,7 +52,7 @@ for row in file:
 
         #pd.DataFrame(network_info).to_csv("Network_Information.csv")
         exit(0)
-    if row[12] != "normal":
+    if row[12] != "normal" or row[2]=="ICMP":
         continue
     IP = row[3]
     port = row[4]

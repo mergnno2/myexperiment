@@ -87,6 +87,8 @@ def count_RwA(srcIP, time_window):
     RwA = 0
     diff_target = []
     for flow in time_window:
+        if flow[2] == "ICMP":  # 不考虑ICMP报文的“是否响应”特点
+            continue
         if re.search("\.", flow[5]) != None:
             dstIP = flow[5][0:3]
             if flow[3] == srcIP:
@@ -140,13 +142,42 @@ def count_RwA(srcIP, time_window):
 
 def count_NeIP(srcIP, time_window):
     NeIP = 0
-
+    diff_IP = []
+    for flow in time_window:
+        if flow[3] == srcIP and flow[5] not in diff_IP:
+            diff_IP.append(flow[5])
+    for ip in diff_IP:
+        if network_info.get(ip) == None:
+            NeIP = NeIP + 1
     return NeIP
 
 
 def count_NeTCP(srcIP, time_window):
     NeTCP = 0
-
+    diff_target = []
+    for flow in time_window:
+        if flow[3] == srcIP:
+            if len(diff_target) == 0:
+                target = Target(IP=flow[5], port=flow[6])
+                diff_target.append(target)
+                continue
+            isNew = True
+            i = 0
+            while i < len(diff_target):
+                if flow[5] == diff_target[i].IP and flow[6] == diff_target[i].port:
+                    isNew = False
+                i = i + 1
+            if isNew:
+                target = Target(IP=flow[5], port=flow[6])
+                diff_target.append(target)
+    # 至此，统计完了所有srcIP发起的目标的集合   目标：（目的地址，目的端口）
+    # 接下来，查看所有的目标（目的地址，目的端口）能否在“网络信息”字典中查找到
+    i = 0
+    while i < len(diff_target):
+        if network_info.get(diff_target[i].IP) != None:
+            if diff_target[i].port not in network_info.get(diff_target[i].IP):
+                NeTCP = NeTCP + 1
+        i = i + 1
     return NeTCP
 
 
