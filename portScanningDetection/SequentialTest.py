@@ -156,6 +156,8 @@ def count_NeTCP(srcIP, time_window):
     NeTCP = 0
     diff_target = []
     for flow in time_window:
+        if flow[2] == "ICMP": # Without considering ICMP packet.
+            continue
         if flow[3] == srcIP:
             if len(diff_target) == 0:
                 target = Target(IP=flow[5], port=flow[6])
