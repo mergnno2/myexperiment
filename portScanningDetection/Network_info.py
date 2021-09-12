@@ -17,7 +17,7 @@ filepath = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\tra
 file = csv.reader(open(filepath, 'r'))
 
 start_bound = 0
-end_bound = 5
+end_bound = 21
 
 timing = 0
 
