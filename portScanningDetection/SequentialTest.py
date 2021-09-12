@@ -56,6 +56,8 @@ def count_RST(srcIP, time_window):
     RST = 0
     diff_target = []
     for flow in time_window:
+        if flow[2] == "UDP":
+            continue
         if flow[3] == srcIP and re.search("A", flow[10]) == None:
             if len(diff_target) == 0:
                 target = Target(IP=flow[5], port=flow[6])
@@ -94,7 +96,7 @@ def count_RwA(srcIP, time_window):
             if flow[3] == srcIP:
                 if int(dstIP) >= 224 and int(dstIP) <= 239:
                     continue
-                if srcIP == "255.255.255.255":
+                if re.search("255", flow[5]) != None:
                     continue
                 if len(diff_target) == 0:
                     target = Target(IP=flow[5], port=flow[6])
@@ -144,9 +146,22 @@ def count_NeIP(srcIP, time_window):
     NeIP = 0
     diff_IP = []
     for flow in time_window:
-        if flow[3] == srcIP and flow[5] not in diff_IP:
-            diff_IP.append(flow[5])
+        if flow[3] != srcIP:
+            continue
+        if re.search("\.", flow[5]) != None:
+            dstIP = flow[5][0:3]
+            if int(dstIP) >= 224 and int(dstIP) <= 239:
+                continue
+            if re.search("255", flow[5]) != None:
+                continue
+            if flow[5] not in diff_IP:
+                diff_IP.append(flow[5])
+        else:
+            if flow[5] not in diff_IP:
+                diff_IP.append(flow[5])
     for ip in diff_IP:
+        if re.search("_",ip) != None:
+            continue
         if network_info.get(ip) == None:
             NeIP = NeIP + 1
     return NeIP
@@ -154,11 +169,27 @@ def count_NeIP(srcIP, time_window):
 
 def count_NeTCP(srcIP, time_window):
     NeTCP = 0
+    src_host = {}
     diff_target = []
     for flow in time_window:
-        if flow[2] == "ICMP":  # Without considering ICMP packet.
+        if flow[2] != "TCP":  # Without considering flows that is not a TCP connection.
             continue
-        if flow[3] == srcIP:
+        if flow[5] == srcIP:
+            result = src_host.get(flow[3])
+            if result == None:
+                ports = []
+                ports.append(flow[4])
+                src_host.update({flow[3]: ports})
+            else:
+                if flow[4] not in result:
+                    src_host[flow[3]] = src_host[flow[3]] + [flow[4]]
+            continue
+        elif flow[3] == srcIP:
+            if re.search("A", flow[10]) != None:
+                continue
+            if src_host.get(flow[5]) != None:
+                if flow[6] in src_host.get(flow[5]):
+                    continue
             if len(diff_target) == 0:
                 target = Target(IP=flow[5], port=flow[6])
                 diff_target.append(target)
@@ -211,7 +242,8 @@ def detect_abnormal(event):
         return
     else:
         if srcIP_ratio.get(event.IP) > eita1:
-            print("abnormal caused by the host:" + event.IP)
+            print(flow_data[-1][-1][0])
+            #print("abnormal caused by the host:" + event.IP)
             srcIP_ratio[event.IP] = 1.0
         elif srcIP_ratio.get(event.IP) < eita0:
             # This host is considered as a normal one.
@@ -227,8 +259,10 @@ def generate_network_event(time_window):
     hosts = hosts_per_window(time_window=time_window)
     for host in hosts:
         ICMP = count_ICMP(srcIP=host, time_window=time_window)
-        RST = count_RST(srcIP=host, time_window=time_window)
-        RwA = count_RwA(srcIP=host, time_window=time_window)
+        # RST = count_RST(srcIP=host, time_window=time_window)
+        RST = 0
+        # RwA = count_RwA(srcIP=host, time_window=time_window)
+        RwA = 0
         NeIP = count_NeIP(srcIP=host, time_window=time_window)
         NeTCP = count_NeTCP(srcIP=host, time_window=time_window)
         network_events.append(Network_Event(IP=host, ICMP=ICMP, RST=RST, RwA=RwA, NeIP=NeIP, NeTCP=NeTCP))
@@ -251,10 +285,10 @@ network_events = []
 flow_data = []
 theta0 = 0.8
 theta1 = 0.2
-eita0 = 0.001
-eita1 = 999
+eita0 = 0.01
+eita1 = 99
 start_bound = 0
-end_bound = 9
+end_bound = 20
 
 timing = 0
 
@@ -279,6 +313,9 @@ for row in flow_file:
         flow_data.append([])
         flow_data[window_index].append(firstrow)
         isFirstrow = False
+
+    if row[13] == "dos":
+        continue
 
     end = get_time(row[0])
     timeArray = time.strptime(row[0], "%Y-%m-%d %H:%M:%S.%f")

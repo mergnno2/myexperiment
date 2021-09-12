@@ -1,6 +1,7 @@
 import os
 
 temp = {}
-temp.update({2:3.3})
-temp.update({2:3.4})
+result=temp.get(2)
+if result == None:
+    temp[2]=temp[2]+[5]
 print(temp)
