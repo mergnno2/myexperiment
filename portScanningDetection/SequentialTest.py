@@ -56,7 +56,7 @@ def count_RST(srcIP, time_window):
     RST = 0
     diff_target = []
     for flow in time_window:
-        if flow[2] == "UDP":
+        if flow[2] == "UDP  ":
             continue
         if flow[3] == srcIP and re.search("A", flow[10]) == None:
             if len(diff_target) == 0:
@@ -89,7 +89,7 @@ def count_RwA(srcIP, time_window):
     RwA = 0
     diff_target = []
     for flow in time_window:
-        if flow[2] == "ICMP":  # 不考虑ICMP报文的“是否响应”特点
+        if flow[2] == "ICMP  ":  # 不考虑ICMP报文的“是否响应”特点
             continue
         if re.search("\.", flow[5]) != None:
             dstIP = flow[5][0:3]
@@ -160,7 +160,7 @@ def count_NeIP(srcIP, time_window):
             if flow[5] not in diff_IP:
                 diff_IP.append(flow[5])
     for ip in diff_IP:
-        if re.search("_",ip) != None:
+        if re.search("_", ip) != None:
             continue
         if network_info.get(ip) == None:
             NeIP = NeIP + 1
@@ -172,7 +172,7 @@ def count_NeTCP(srcIP, time_window):
     src_host = {}
     diff_target = []
     for flow in time_window:
-        if flow[2] != "TCP":  # Without considering flows that is not a TCP connection.
+        if flow[2] != "TCP  ":  # Without considering flows that is not a TCP connection.
             continue
         if flow[5] == srcIP:
             result = src_host.get(flow[3])
@@ -242,8 +242,7 @@ def detect_abnormal(event):
         return
     else:
         if srcIP_ratio.get(event.IP) > eita1:
-            print(flow_data[-1][-1][0])
-            #print("abnormal caused by the host:" + event.IP)
+            # print(flow_data[-1][-1][0])
             srcIP_ratio[event.IP] = 1.0
         elif srcIP_ratio.get(event.IP) < eita0:
             # This host is considered as a normal one.
@@ -319,6 +318,8 @@ for row in flow_file:
 
     end = get_time(row[0])
     timeArray = time.strptime(row[0], "%Y-%m-%d %H:%M:%S.%f")
+    if timeArray.tm_hour == 6:
+        pass
     if timeArray.tm_hour > timing:
         print(str(timeArray.tm_hour) + "o'clock")
         timing = timing + 1
