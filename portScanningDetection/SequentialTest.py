@@ -242,7 +242,8 @@ def detect_abnormal(event):
         return
     else:
         if srcIP_ratio.get(event.IP) > eita1:
-            # print(flow_data[-1][-1][0])
+            print(flow_data[-1][-1][0])
+            #print("Port attack caused by the host: " + event.IP)
             srcIP_ratio[event.IP] = 1.0
         elif srcIP_ratio.get(event.IP) < eita0:
             # This host is considered as a normal one.
