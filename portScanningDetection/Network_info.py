@@ -11,10 +11,7 @@ def get_time(time_string):
     timeStamp = float(time.mktime(timeArray))
     return timeStamp
 
-# latest version that perform a nice result. However, it has some bug, that is: network_info
-# should be recorded when the detecting process is running, not recorded before the
-# process. Plus, it should not consider the attribute "normal" of which flow has.
-# That's mean that this algorithm is actually supervised. That is not right.
+# Network info should not be recorded like this way, this code is wrong.
 filepath = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week1.csv"
 # open the original csv data file
 file = csv.reader(open(filepath, 'r'))
