@@ -8,16 +8,19 @@ import numpy as np
 import csv
 
 
+class Connection(object):
+    def __init__(self, src, dst, last_seen_time, con_1, con_2):
+        self.src = Target(src.IP, src.port)
+        self.dst = Target(dst.IP, dst.port)
+        self.last_seen_time = last_seen_time
+        self.con_1 = con_1
+        self.con_2 = con_2
+
+
 class Target(object):
     def __init__(self, IP, port):
         self.IP = IP
         self.port = port
-
-
-class Host(object):
-    def __init__(self, IP):
-        self.IP = IP
-        self.ports = []
 
 
 class Network_Event(object):
@@ -169,27 +172,11 @@ def count_NeIP(srcIP, time_window):
 
 def count_NeTCP(srcIP, time_window):
     NeTCP = 0
-    src_host = {}
     diff_target = []
     for flow in time_window:
         if flow[2] != "TCP  ":  # Without considering flows that is not a TCP connection.
             continue
-        if flow[5] == srcIP:
-            result = src_host.get(flow[3])
-            if result == None:
-                ports = []
-                ports.append(flow[4])
-                src_host.update({flow[3]: ports})
-            else:
-                if flow[4] not in result:
-                    src_host[flow[3]] = src_host[flow[3]] + [flow[4]]
-            continue
         elif flow[3] == srcIP:
-            if re.search("A", flow[10]) != None:
-                continue
-            if src_host.get(flow[5]) != None:
-                if flow[6] in src_host.get(flow[5]):
-                    continue
             if len(diff_target) == 0:
                 target = Target(IP=flow[5], port=flow[6])
                 diff_target.append(target)
@@ -243,7 +230,7 @@ def detect_abnormal(event):
     else:
         if srcIP_ratio.get(event.IP) > eita1:
             print(flow_data[-1][-1][0])
-            #print("Port attack caused by the host: " + event.IP)
+            # print("Port scan attack caused by the host: " + event.IP)
             srcIP_ratio[event.IP] = 1.0
         elif srcIP_ratio.get(event.IP) < eita0:
             # This host is considered as a normal one.
@@ -273,16 +260,110 @@ def generate_network_event(time_window):
     return
 
 
-network_information_path = "D:\Python\Python37\myexperiment\portScanningDetection\\Network_Information.csv"
+def update_network_info(flow):
+    # update the parameter 'network_info' (which is a dictionary that recored the <ip,ports> information) here:
+    if flow[2] != "TCP  ":
+        return
+    src = Target(IP=flow[3], port=flow[4])
+    dst = Target(IP=flow[5], port=flow[6])
+    T = get_time(row[0])
+    result_src = network_info.get(src.IP)
+    result_dst = network_info.get(dst.IP)
+    if result_src != None and result_dst != None:
+        # if <sip,spt> and <dip,dpt> has already both recorded, then do nothing.
+        if src.port in result_src and dst.port in result_dst:
+            return
+    isNew = True
+    i = 0
+    while i < len(connections):
+        if connections[i].src.IP == src.IP and connections[i].src.port == src.port \
+                and connections[i].dst.IP == dst.IP and connections[i].dst.port == dst.port:
+            isNew = False
+            if re.search("A", flow[10]) != None and re.search("S", flow[10]) != None:
+                connections[i].last_seen_time = T
+            else:
+                connections.__delitem__(i)
+            return
+        elif connections[i].src.IP == dst.IP and connections[i].src.port == dst.port \
+                and connections[i].dst.IP == src.IP and connections[i].dst.port == src.port:
+            isNew = False
+            if re.search("A", flow[10]) != None and re.search("S", flow[10]) != None:
+                if T - connections[i].last_seen_time > 6:
+                    connections[i].src.IP = dst.IP
+                    connections[i].src.port = dst.port
+                    connections[i].dst.IP = src.IP
+                    connections[i].dst.port = src.port
+                else:
+                    connections[i].con_2 = True
+                    if result_src != None:
+                        if src.port not in result_src:
+                            result_src.append(src.port)
+                            network_info.update({src.IP: result_src})
+                    else:
+                        src_ports = []
+                        src_ports.append(src.port)
+                        network_info.update({src.IP: src_ports})
+                    if result_dst != None:
+                        if dst.port not in result_dst:
+                            result_dst.append(dst.port)
+                            network_info.update({dst.IP: result_dst})
+                    else:
+                        dst_ports = []
+                        dst_ports.append(dst.port)
+                        network_info.update({dst.IP: dst_ports})
+                    connections.__delitem__(i)
+            else:
+                connections.__delitem__(i)
+            return
+        i = i + 1
+    if isNew and re.search("A", flow[10]) != None and re.search("S", flow[10]) != None:
+        connections.append(Connection(src=src, dst=dst, last_seen_time=T, con_1=True, con_2=False))
+    return
+
+
+def update_network_info_for_failed_connection(flow):
+    # this method is for those flows which are related to the failed connections between attacker and victim.
+    # obviousily, victim didn't connect to the invalid TCP port on the attacker's machine, they just did the
+    # regular response to them.
+    # Therefore, any flows that include TCP flags 'A' are considered as normal ( in the case of only SYN scan exist.)
+    if flow[2] != "TCP  " or re.search("A", flow[10]) == None:
+        return
+    dst = Target(IP=flow[5], port=flow[6])
+    result = network_info.get(dst.IP)
+    if result == None:
+        ports = []
+        ports.append(dst.port)
+        network_info.update({dst.IP: ports})
+    else:
+        if dst.port not in result:
+            result.append(dst.port)
+            network_info.update({dst.IP: result})
+    return
+
+
 filepath = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week1.csv"
 # open the original csv data file
-info_file = csv.reader(open(network_information_path, 'r'))
 flow_file = csv.reader(open(filepath, 'r'))
 
+valid_IPs = ['192.168.100.2', '192.168.100.3', '192.168.100.4', '192.168.100.5', '192.168.100.6',
+             '192.168.200.2', '192.168.200.3', '192.168.200.4', '192.168.200.5', '192.168.200.8', '192.168.200.9',
+             '192.168.210.2', '192.168.210.3', '192.168.210.4', '192.168.210.5',
+             '192.168.220.2', '192.168.220.3', '192.168.220.4', '192.168.220.5', '192.168.220.6', '192.168.220.7',
+             '192.168.220.8', '192.168.220.9', '192.168.220.10', '192.168.220.11', '192.168.220.12', '192.168.220.13',
+             '192.168.220.14', '192.168.220.15', '192.168.220.16',
+             'DNS', 'EXT_SERVER']
+
+flow_data = []
+connections = []
+network_events = []
 srcIP_ratio = {}
 network_info = {}
-network_events = []
-flow_data = []
+
+# record the above valid_IPs into network_info
+for ip in valid_IPs:
+    ports = []
+    network_info.update({ip: ports})
+
 theta0 = 0.8
 theta1 = 0.2
 eita0 = 0.01
@@ -297,15 +378,6 @@ head = next(flow_file)
 firstrow = next(flow_file)
 start = get_time(firstrow[0])
 window_index = 0
-
-for row in info_file:
-    i = 1
-    value = []
-    while i < len(row):
-        value.append(row[i])
-        i = i + 1
-    info_item = {row[0]: value}
-    network_info.update(info_item)
 
 for row in flow_file:
 
@@ -329,6 +401,12 @@ for row in flow_file:
     elif timeArray.tm_hour >= end_bound:
         # Calculate precision here.
         exit(0)
+
+    # before add this row (which is a flow record) into each timewindow,
+    # we need to use this row to update the Network_information, which is
+    # recorded the information about the successful TCP connections and <ip,port>.
+    update_network_info(row)
+    update_network_info_for_failed_connection(row)
 
     flow_data[window_index].append(row)
 
