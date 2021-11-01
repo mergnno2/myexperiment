@@ -229,8 +229,10 @@ def detect_abnormal(event):
         return
     else:
         if srcIP_ratio.get(event.IP) > eita1:
-            print(flow_data[-1][-1][0])
-            # print("Port scan attack caused by the host: " + event.IP)
+            # print(flow_data[-1][-1][0])
+            if event.IP != "192.168.220.16":
+                print("Port scan attack caused by the host: " + event.IP,
+                      "\t Time interval:", flow_data[-1][0][0], "--", flow_data[-1][-1][0])
             srcIP_ratio[event.IP] = 1.0
         elif srcIP_ratio.get(event.IP) < eita0:
             # This host is considered as a normal one.
@@ -370,6 +372,7 @@ eita0 = 0.01
 eita1 = 99
 start_bound = 0
 end_bound = 20
+window_length = 20  # seconds
 
 timing = 0
 
@@ -393,14 +396,16 @@ for row in flow_file:
     timeArray = time.strptime(row[0], "%Y-%m-%d %H:%M:%S.%f")
     if timeArray.tm_hour == 6:
         pass
-    if timeArray.tm_hour > timing:
-        print(str(timeArray.tm_hour) + "o'clock")
+    if timing == 24 and timeArray.tm_hour == 0:
+        timing = 0
+    if timeArray.tm_hour >= timing:
+        print("Day_", timeArray.tm_mday, ",", timing % 24, "o'clock")
         timing = timing + 1
-    elif timeArray.tm_hour < start_bound:
-        continue
-    elif timeArray.tm_hour >= end_bound:
-        # Calculate precision here.
-        exit(0)
+    # elif timeArray.tm_hour < start_bound:
+    # continue
+    # elif timeArray.tm_hour >= end_bound:
+    # Calculate precision here.
+    # exit(0)
 
     # before add this row (which is a flow record) into each timewindow,
     # we need to use this row to update the Network_information, which is
@@ -410,7 +415,7 @@ for row in flow_file:
 
     flow_data[window_index].append(row)
 
-    if end - start >= 60:
+    if end - start >= window_length:
         generate_network_event(flow_data[window_index])
         start = end
         flow_data.append([])
