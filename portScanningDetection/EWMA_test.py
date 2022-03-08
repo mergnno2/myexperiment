@@ -6,12 +6,12 @@ numbers = []
 ewma = []
 numbers.append(0)
 ewma.append(0)
-alpha = 0.2
-for i in range(1, 200):
+alpha = 0.01
+for i in range(1, 100):
     numbers.append(random.randint(numbers[i - 1] - 5, numbers[i - 1] + 5))
     ewma.append((1 - alpha) * ewma[i - 1] + alpha * numbers[i])
 plt.plot(numbers)
 plt.plot(ewma)
-print(numbers)
-print(ewma)
+#print(numbers)
+#print(ewma)
 plt.show()
