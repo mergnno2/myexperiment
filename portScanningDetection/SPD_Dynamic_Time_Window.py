@@ -315,30 +315,14 @@ def calculate_precision(count_total, count_total_abnormal, count_total_normal,
 
 
 filepath = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week1.csv"
-filepath_2 = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001-internal-week1-T1.csv"
 # open the original csv data file
 flow_file = csv.reader(open(filepath, 'r'))
-save_file = csv.writer(open(filepath_2, 'w', newline=""))
-
-valid_IPs = ['192.168.100.2', '192.168.100.3', '192.168.100.4', '192.168.100.5', '192.168.100.6',
-             '192.168.200.2', '192.168.200.3', '192.168.200.4', '192.168.200.5', '192.168.200.8', '192.168.200.9',
-             '192.168.210.2', '192.168.210.3', '192.168.210.4', '192.168.210.5',
-             '192.168.220.2', '192.168.220.3', '192.168.220.4', '192.168.220.5', '192.168.220.6', '192.168.220.7',
-             '192.168.220.8', '192.168.220.9', '192.168.220.10', '192.168.220.11', '192.168.220.12', '192.168.220.13',
-             '192.168.220.14', '192.168.220.15', '192.168.220.16',
-             'DNS', 'EXT_SERVER']
 
 flow_data = []
 connections = []  # used to mark every connections (those TCP connections that unfinished) as flow comes.
 srcIP_ratio = {}  # dictionary for every IP in network for recording the ratio.
 network_info = {}  # mark the valid <IP,port> information. host <IP> opend the port <Port>
 hosts = []  # record the hosts which is related to abnormal flows and ready to detected by the algorithm
-
-# record the above valid_IPs into network_info
-for ip in valid_IPs:
-    ports = []
-    network_info.update({ip: ports})
-
 theta0 = 0.8
 theta1 = 0.2
 eita0 = 0.01
@@ -349,14 +333,27 @@ beita = 0.7
 deafult_window_len = 900
 timing = 0
 
-head = next(flow_file)
-
+# counters for calculate the precision
 count_total = 0
 count_total_normal = 0
 count_total_abnormal = 0
 count_detected_abnormal = 0
 count_detected_normal = 0
 
+# these valid IPs are observed from the given network topology
+valid_IPs = ['192.168.100.2', '192.168.100.3', '192.168.100.4', '192.168.100.5', '192.168.100.6',
+             '192.168.200.2', '192.168.200.3', '192.168.200.4', '192.168.200.5', '192.168.200.8', '192.168.200.9',
+             '192.168.210.2', '192.168.210.3', '192.168.210.4', '192.168.210.5',
+             '192.168.220.2', '192.168.220.3', '192.168.220.4', '192.168.220.5', '192.168.220.6', '192.168.220.7',
+             '192.168.220.8', '192.168.220.9', '192.168.220.10', '192.168.220.11', '192.168.220.12', '192.168.220.13',
+             '192.168.220.14', '192.168.220.15', '192.168.220.16',
+             'DNS', 'EXT_SERVER']
+# record the above valid_IPs into network_info
+for ip in valid_IPs:
+    ports = []
+    network_info.update({ip: ports})
+
+head = next(flow_file)
 for row in flow_file:
 
     if pre_operation(row=row) is True:
@@ -369,15 +366,6 @@ for row in flow_file:
     if timeArray.tm_hour >= timing:
         print("Month:", timeArray.tm_mon, "Day:", timeArray.tm_mday, ",", timing % 24, "o'clock")
         timing = timing + 1
-
-    if timeArray.tm_hour < 14:
-        continue
-    if timeArray.tm_min < 15:
-        continue
-    if timeArray.tm_min > 40:
-        break
-    #save_file.writerow(row)
-    #continue
 
     # we need to use this row to update the Network_information, which is
     # recorded the information about the successful TCP connections and <ip,port>.
@@ -396,6 +384,7 @@ for row in flow_file:
     count_detected_abnormal = count_detected_abnormal + count_a
     count_detected_normal = count_detected_normal + count_n
 
+# once the program ends, we can calculate the precision of the algorithm
 calculate_precision(count_total=count_total, count_total_abnormal=count_total_abnormal,
                     count_total_normal=count_total_normal, count_detected_abnormal=count_detected_abnormal,
                     count_detected_normal=count_detected_normal)
