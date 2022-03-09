@@ -110,7 +110,7 @@ def detect_abnormal(flow):
     #        isNew = False
     #        current_host = host
     if isNew:
-        current_host = Host(IP=IP, ts=get_time(flow[0]), tl=get_time(flow[0]), Td=120, ratio=1, alpha=1)
+        current_host = Host(IP=IP, ts=get_time(flow[0]), tl=get_time(flow[0]), Td=deafult_window_len, ratio=1, alpha=1)
         hosts.append(current_host)
         current_host.flows.append(flow)
         # and if it's the first abnormal flow of the given host, do nothing and waiting for second one.
@@ -125,8 +125,6 @@ def detect_abnormal(flow):
     if delta_t < current_host.Td:
         # the time window is not over yet.
 
-        # count the abnormal counter(alpha) for the given host
-        current_host.alpha = current_host.alpha + 1
         # append the sample window length according to the time stamp of current flow
         current_host.window_sample.append(ti - current_host.tl)
         # append the EWMA window length according to the EWMA algorithm
@@ -139,6 +137,15 @@ def detect_abnormal(flow):
         current_host.window_ewma.append(ewma_value)
         # update the last seen time stamp of the abnormal flow that caused by the host
         current_host.tl = ti
+
+        # count the abnormal counter(alpha) for the given host
+        current_host.alpha = current_host.alpha + 1
+
+        # fix the ewma bug here. if alpha is larger than 15, we should consider if the attacker is running a faster scan
+        # and then we should adjust the window length immediately.
+        if current_host.alpha > 15:
+            # turn the current window length Td into the newest ewma window length
+            current_host.Td = current_host.window_ewma[-1]
 
     else:  # delta_t>current_host.Td
         # generate(get) the newest ewma value of the time window's length from window_ewma
@@ -277,9 +284,41 @@ def update_network_info_for_victim(flow):
     return
 
 
+def pre_operation(row):
+    # skip the dos attack and brute force attack flows
+    if row[13] == "dos" or row[13] == "bruteForce":
+        return True
+    return False
+
+
+def counter_for_abnormal(row):
+    if re.search("TCP", row[2]) is not None and row[12] == "attacker":
+        return 1
+    elif re.search("ICMP", row[2]) is not None and row[12] == "victim":
+        return 1
+    return 0
+
+
+def calculate_precision(count_total, count_total_abnormal, count_total_normal,
+                        count_detected_abnormal, count_detected_normal):
+    if count_total_abnormal == 0:
+        count_total_abnormal = 1
+    if count_total_normal == 0:
+        count_total_normal = 1
+    count_total_normal = count_total - count_total_abnormal
+    TP = count_detected_abnormal / count_total_abnormal
+    FP = count_detected_normal / count_total_normal
+    print("count_detected_abnormal", count_detected_abnormal, "count_total_abnormal", count_total_abnormal, "TP:", TP)
+    print("count_detected_normal", count_detected_normal, "count_total_normal", count_total_normal, "FP:", FP)
+    print("count_total", count_total)
+    return
+
+
 filepath = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week1.csv"
+filepath_2 = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001-internal-week1-T1.csv"
 # open the original csv data file
 flow_file = csv.reader(open(filepath, 'r'))
+save_file = csv.writer(open(filepath_2, 'w', newline=""))
 
 valid_IPs = ['192.168.100.2', '192.168.100.3', '192.168.100.4', '192.168.100.5', '192.168.100.6',
              '192.168.200.2', '192.168.200.3', '192.168.200.4', '192.168.200.5', '192.168.200.8', '192.168.200.9',
@@ -304,12 +343,10 @@ theta0 = 0.8
 theta1 = 0.2
 eita0 = 0.01
 eita1 = 99
-start_bound = 0
-end_bound = 20
 # beita is the attribute of the EWMA algorithm
 beita = 0.7
 # window_length = 20  # seconds
-
+deafult_window_len = 900
 timing = 0
 
 head = next(flow_file)
@@ -321,15 +358,26 @@ count_detected_abnormal = 0
 count_detected_normal = 0
 
 for row in flow_file:
-    # skip the dos attack and brute force attack flows
-    if row[13] == "dos" or row[13] == "bruteForce":
+
+    if pre_operation(row=row) is True:
         continue
 
-    count_total = count_total + 1
-    if re.search("TCP", row[2]) is not None and row[12] == "attacker":
-        count_total_abnormal = count_total_abnormal + 1
-    elif re.search("ICMP", row[2]) is not None and row[12] == "victim":
-        count_total_abnormal = count_total_abnormal + 1
+    timeArray = time.strptime(row[0], "%Y-%m-%d %H:%M:%S.%f")
+
+    if timing == 24 and timeArray.tm_hour == 0:
+        timing = 0
+    if timeArray.tm_hour >= timing:
+        print("Month:", timeArray.tm_mon, "Day:", timeArray.tm_mday, ",", timing % 24, "o'clock")
+        timing = timing + 1
+
+    if timeArray.tm_hour < 14:
+        continue
+    if timeArray.tm_min < 15:
+        continue
+    if timeArray.tm_min > 40:
+        break
+    #save_file.writerow(row)
+    #continue
 
     # we need to use this row to update the Network_information, which is
     # recorded the information about the successful TCP connections and <ip,port>.
@@ -340,28 +388,18 @@ for row in flow_file:
     # flow_data.append(flow=row)
     # then testify each flow(row) if its ICMP/NeIP/NeTCP counter is not null
     # then run the abnormal detection algorithm using dynamic time_window
-    (a, n) = detect_abnormal(flow=row)
-    count_detected_abnormal = count_detected_abnormal + a
-    count_detected_normal = count_detected_normal + n
+    (count_a, count_n) = detect_abnormal(flow=row)
 
-    timeArray = time.strptime(row[0], "%Y-%m-%d %H:%M:%S.%f")
+    # update all the counters for calculate the TP and FP
+    count_total = count_total + 1
+    count_total_abnormal = count_total_abnormal + counter_for_abnormal(row=row)
+    count_detected_abnormal = count_detected_abnormal + count_a
+    count_detected_normal = count_detected_normal + count_n
 
-    if timeArray.tm_hour >= 8:
-        break
-
-    if timing == 24 and timeArray.tm_hour == 0:
-        timing = 0
-    if timeArray.tm_hour >= timing:
-        print("Month:", timeArray.tm_mon, "Day:", timeArray.tm_mday, ",", timing % 24, "o'clock")
-        timing = timing + 1
-
-count_total_normal = count_total - count_total_abnormal
-TP = count_detected_abnormal / count_total_abnormal
-FP = count_detected_normal / count_total_normal
-print("count_detected_abnormal", count_detected_abnormal, "count_total_abnormal", count_total_abnormal, "TP:", TP)
-print("count_detected_normal", count_detected_normal, "count_total_normal", count_total_normal, "FP:", FP)
-print("count_total", count_total)
-
+calculate_precision(count_total=count_total, count_total_abnormal=count_total_abnormal,
+                    count_total_normal=count_total_normal, count_detected_abnormal=count_detected_abnormal,
+                    count_detected_normal=count_detected_normal)
+'''
 pics = []
 labels = []
 for h in hosts:
@@ -380,5 +418,4 @@ pics.append(pic_2)
 pics.append(pic_3)
 
 plt.legend(pics, labels, loc='upper right')
-plt.show()
-
+plt.show()'''
