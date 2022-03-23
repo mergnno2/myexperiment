@@ -6,7 +6,9 @@ import pandas as pd
 import time
 import numpy as np
 import csv
-import matplotlib.pyplot as plt
+
+
+# import matplotlib.pyplot as plt
 
 
 class Host(object):
@@ -164,9 +166,15 @@ def detect_abnormal(flow):
                         c_d_n = c_d_n + 1
                     elif flow[12] == "attacker":
                         c_d_a = c_d_a + 1
+                        # record the detected activity ID
+                        if flow[14] not in activity_ID:
+                            activity_ID.append(flow[14])
                 elif re.search("ICMP", flow[2]) is not None:
                     if flow[12] == "victim":
                         c_d_a = c_d_a + 1
+                        # record the detected activity ID
+                        if flow[14] not in activity_ID:
+                            activity_ID.append(flow[14])
                     else:
                         c_d_n = c_d_n + 1
             current_host.ratio = 1
@@ -311,24 +319,29 @@ def calculate_precision(count_total, count_total_abnormal, count_total_normal,
     print("count_detected_abnormal", count_detected_abnormal, "count_total_abnormal", count_total_abnormal, "TP:", TP)
     print("count_detected_normal", count_detected_normal, "count_total_normal", count_total_normal, "FP:", FP)
     print("count_total", count_total)
+    print("detected activity IDs:", activity_ID)
     return
 
 
-filepath = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week1.csv"
+filepath = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week2.csv"
+# filepath2 = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001-internal-week1_write.csv"
 # open the original csv data file
 flow_file = csv.reader(open(filepath, 'r'))
+# write_file = csv.writer(open(filepath2, 'w', newline=""))
 
 flow_data = []
 connections = []  # used to mark every connections (those TCP connections that unfinished) as flow comes.
 srcIP_ratio = {}  # dictionary for every IP in network for recording the ratio.
 network_info = {}  # mark the valid <IP,port> information. host <IP> opend the port <Port>
 hosts = []  # record the hosts which is related to abnormal flows and ready to detected by the algorithm
+activity_ID = []  # record the activity ID that system detected
+
 theta0 = 0.8
 theta1 = 0.2
 eita0 = 0.01
 eita1 = 99
 # beita is the attribute of the EWMA algorithm
-beita = 0.7
+beita = 0.9
 # window_length = 20  # seconds
 deafult_window_len = 900
 timing = 0
@@ -366,6 +379,15 @@ for row in flow_file:
     if timeArray.tm_hour >= timing:
         print("Month:", timeArray.tm_mon, "Day:", timeArray.tm_mday, ",", timing % 24, "o'clock")
         timing = timing + 1
+
+    if timeArray.tm_mday < 23:
+        continue
+    if timeArray.tm_hour < 7:
+        continue
+    if timeArray.tm_hour == 7 and timeArray.tm_min < 30:
+        continue
+    if timeArray.tm_hour == 14 and timeArray.tm_min > 35:
+        break
 
     # we need to use this row to update the Network_information, which is
     # recorded the information about the successful TCP connections and <ip,port>.
