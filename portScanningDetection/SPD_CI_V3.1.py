@@ -333,12 +333,12 @@ timewindow = []
 starttime = 0
 startmin = 0
 
-endtime = 7
+endtime = 6
 endmin = 40
 
 windownum = 4
 windowlen = 300
-threshold = 0.05
+threshold = 0.65
 
 
 timing = 0
@@ -369,10 +369,9 @@ for row in file:
     if timeArray.tm_hour < starttime:
         start = timeStamp
         continue
-    else:
-        if timeArray.tm_hour == starttime and timeArray.tm_min <= startmin:
-            start = timeStamp
-            continue
+    elif timeArray.tm_hour == starttime and timeArray.tm_min <= startmin:
+        start = timeStamp
+        continue
     if timeArray.tm_hour >= endtime and timeArray.tm_min >= endmin:
         calculate_precision(timewindow=timewindow)
         exit(0)

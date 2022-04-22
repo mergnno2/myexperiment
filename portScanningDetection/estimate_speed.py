@@ -20,7 +20,7 @@ def pre_operation(row):
     return False
 
 
-filepath = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week2.csv"
+filepath = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week1.csv"
 flow_file = csv.reader(open(filepath, 'r'))
 
 flow_data = []
@@ -57,7 +57,7 @@ for row in flow_file:
 
     if row[12] == "attacker":
         end = get_time(row[0])
-        if end - start > 5:
+        if end - start > 60:
             if re.search("1", row[15]) is not None:
                 pkt_t1.append(counter)
                 pkt_t2.append(None)
@@ -88,8 +88,8 @@ for row in flow_file:
 pics = []
 labels = ['-T1', '-T2', '-T3']
 pic_0, = plt.plot(pkt_t1, color='blue')
-pic_1, = plt.plot(pkt_t2, color='green')
-pic_2, = plt.plot(pkt_t3, color='red')
+pic_1, = plt.plot(pkt_t2, color='green', linestyle=':')
+pic_2, = plt.plot(pkt_t3, color='red', linestyle='--')
 pics.append(pic_0)
 pics.append(pic_1)
 pics.append(pic_2)
