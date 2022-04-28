@@ -61,9 +61,9 @@ class Horizontal(object):
         self.entropy = 0
         for item in self.destination:
             per = float(item.count / total_count)
-            self.entropy = self.entropy + (per * -np.math.log(per))
-        #self.entropy = self.entropy * (1/total_count) * (1/total_count)
-        #print(self.entropy)
+            self.entropy = self.entropy + (per * -np.math.log(per, 2))
+        # self.entropy = self.entropy * (1/total_count) * (1/total_count)
+        # print(self.entropy)
 
 
 class Vertical(object):
@@ -109,9 +109,9 @@ class Vertical(object):
         self.entropy = 0
         for item in self.destination:
             per = float(item.count / total_count)
-            self.entropy = self.entropy + (per * -np.math.log(per))
-        #self.entropy = self.entropy * (1/total_count) * (1/total_count)
-        #print(self.entropy)
+            self.entropy = self.entropy + (per * -np.math.log(per, 2))
+        # self.entropy = self.entropy * (1/total_count) * (1/total_count)
+        # print(self.entropy)
 
 
 def normalizeEntropy(group):
@@ -222,10 +222,10 @@ def markAbnormal(timewindow, group_horizontal, group_vertical):
                     if timewindow[i][j][-1] == "abnormal":
                         j = j + 1
                         continue
-                    if timewindow[i][j][3] == group_horizontal[k].sip and\
+                    if timewindow[i][j][3] == group_horizontal[k].sip and \
                             timewindow[i][j][6] == group_horizontal[k].dpt:
                         timewindow[i][j].append("abnormal")
-                    elif timewindow[i][j][4] == group_horizontal[k].dpt and\
+                    elif timewindow[i][j][4] == group_horizontal[k].dpt and \
                             timewindow[i][j][5] == group_horizontal[k].sip:
                         timewindow[i][j].append("abnormal")
                     j = j + 1
@@ -245,10 +245,10 @@ def markAbnormal(timewindow, group_horizontal, group_vertical):
                     if timewindow[i][j][-1] == "abnormal":
                         j = j + 1
                         continue
-                    if timewindow[i][j][3] == group_vertical[k].sip and\
+                    if timewindow[i][j][3] == group_vertical[k].sip and \
                             timewindow[i][j][5] == group_vertical[k].dip:
                         timewindow[i][j].append("abnormal")
-                    elif timewindow[i][j][5] == group_vertical[k].sip and\
+                    elif timewindow[i][j][5] == group_vertical[k].sip and \
                             timewindow[i][j][3] == group_vertical[k].dip:
                         timewindow[i][j].append("abnormal")
                     j = j + 1
@@ -256,39 +256,39 @@ def markAbnormal(timewindow, group_horizontal, group_vertical):
         k = k + 1
 
     # delete item in each group if param 'destination' is not updated with new host.
-    k=0
-    while k<len(group_horizontal):
+    k = 0
+    while k < len(group_horizontal):
         if not group_horizontal[k].destination_updated:
             if not group_horizontal[k].continual_updated:
                 group_horizontal.__delitem__(k)
                 continue
             else:
                 group_horizontal[k].destination.clear()
-                group_horizontal[k].continual=1
+                group_horizontal[k].continual = 1
                 i = 0
-                while i< len(timewindow[index]):
+                while i < len(timewindow[index]):
                     if group_horizontal[k].match(sip=timewindow[index][i][3], dpt=timewindow[index][i][6]):
                         group_horizontal[k].upDateDip(dip=timewindow[index][i][5])
                         break
-                    i=i+1
-        k=k+1
+                    i = i + 1
+        k = k + 1
 
-    k=0
-    while k<len(group_vertical):
+    k = 0
+    while k < len(group_vertical):
         if not group_vertical[k].destination_updated:
             if not group_vertical[k].continual_updated:
                 group_vertical.__delitem__(k)
                 continue
             else:
                 group_vertical[k].destination.clear()
-                group_vertical[k].continual=1
+                group_vertical[k].continual = 1
                 i = 0
-                while i< len(timewindow[index]):
+                while i < len(timewindow[index]):
                     if group_vertical[k].match(sip=timewindow[index][i][3], dip=timewindow[index][i][5]):
                         group_vertical[k].upDateDpt(dpt=timewindow[index][i][6])
                         break
-                    i=i+1
-        k=k+1
+                    i = i + 1
+        k = k + 1
     return
 
 
@@ -325,6 +325,13 @@ def calculate_precision(timewindow):
     return
 
 
+def pre_operation(row_to_pre_operate):
+    # skip the dos attack and brute force attack flows
+    if row_to_pre_operate[13] == "dos" or row_to_pre_operate[13] == "bruteForce":
+        return True
+    return False
+
+
 filepath = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week1.csv"
 # open the original csv data file
 file = csv.reader(open(filepath, 'r'))
@@ -340,7 +347,6 @@ windownum = 4
 windowlen = 300
 threshold = 0.65
 
-
 timing = 0
 group_horizontal = []
 group_vertical = []
@@ -355,9 +361,8 @@ index = 0
 timewindow.append([])
 for row in file:
 
-    #if isFirstrow:
-        #timewindow[index].append(firstrow)
-        #isFirstrow = False
+    if pre_operation(row_to_pre_operate=row):
+        continue
 
     timeArray = time.strptime(row[0], "%Y-%m-%d %H:%M:%S.%f")
     timeStamp = float(time.mktime(timeArray))
@@ -376,12 +381,6 @@ for row in file:
         calculate_precision(timewindow=timewindow)
         exit(0)
 
-    #if re.search("\.", row[3]) == None or re.search("\.", row[5]) == None:# or \
-    # row[3] == "192.168.100.6" or row[5] == "192.168.100.6":
-    # row[3] == "192.168.100.5" or row[5] == "192.168.100.5" or \
-    # row[3] == "192.168.100.4" or row[5] == "192.168.100.4" or \
-    # row[3] == "192.168.100.3" or row[5] == "192.168.100.3":
-        #continue
     timewindow[index].append(row)
 
     if end - start >= windowlen:

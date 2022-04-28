@@ -318,8 +318,8 @@ def print_timing(row_to_print_time):
         continue
     if timeArray.tm_hour == 14 and timeArray.tm_min > 35:
         break'''
-    #if timeArray.tm_mday >= 16:
-        #return True
+    if timeArray.tm_mday >= 16:
+        return True
     return False
 
 
