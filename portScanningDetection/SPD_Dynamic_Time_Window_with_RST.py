@@ -56,6 +56,8 @@ def check_suspicious(flow):
         return 0
     elif re.search('S', flow[10]) is not None:
         return 0
+    elif re.search('U', flow[10]) is not None:
+        return 0
     elif re.search('P', flow[10]) is not None:
         return 0
     elif re.search('R', flow[10]) is not None:
@@ -310,17 +312,17 @@ def print_timing(row_to_print_time):
         print("Month:", timeArray.tm_mon, "Day:", timeArray.tm_mday, ",", timing % 24, "o'clock")
         timing = timing + 1
 
-    '''if timeArray.tm_mday < 23:
-        continue
+    if timeArray.tm_mday < 23:
+        return 1
     if timeArray.tm_hour < 7:
-        continue
+        return 1
     if timeArray.tm_hour <= 7 and timeArray.tm_min < 30:
-        continue
+        return 1
     if timeArray.tm_hour == 14 and timeArray.tm_min > 35:
-        break'''
-    if timeArray.tm_mday >= 16:
-        return True
-    return False
+        return 2
+    #if timeArray.tm_mday >= 16:
+        #return 2
+    return 0
 
 
 filepath_week_1 = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week1.csv"
@@ -353,6 +355,7 @@ activity_ID = []  # record the activity ID that system detected
 
 attribute_line = next(flow_file_week_1)
 for row in flow_file_week_1:
+    break
 
     # step 1, finish some filtering step
     if pre_operation(row_to_pre_operate=row):
@@ -360,7 +363,9 @@ for row in flow_file_week_1:
 
     # step 2, print the timing information
     time_to_end = print_timing(row_to_print_time=row)
-    if time_to_end:
+    if time_to_end == 1:
+        continue
+    elif time_to_end == 2:
         break
 
     # step 3
@@ -377,6 +382,7 @@ for row in flow_file_week_1:
 
 
 # repeat the above steps in week 2
+
 attribute_line = next(flow_file_week_2)
 
 for row in flow_file_week_2:
@@ -387,7 +393,9 @@ for row in flow_file_week_2:
 
     # step 2, print the timing information
     time_to_end = print_timing(row_to_print_time=row)
-    if time_to_end:
+    if time_to_end == 1:
+        continue
+    elif time_to_end == 2:
         break
 
     # step 3

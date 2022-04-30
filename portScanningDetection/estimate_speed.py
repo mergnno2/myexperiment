@@ -20,27 +20,23 @@ def pre_operation(row):
     return False
 
 
-filepath = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week1.csv"
+filepath = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week2.csv"
+filepath_write = "D:\Python\Python37\myexperiment\portScanningDetection\\figure_1_estimate_interval.csv"
 flow_file = csv.reader(open(filepath, 'r'))
+flow_file_write = csv.writer(open(filepath_write, 'w', newline=''))
 
 flow_data = []
 
 timing = 0
 
-stamps = []
-ewma = []
 intervals = []
 alpha = 0.01
 end = 0
 start = 0
 counter = 0
-pkt_t1 = []
-pkt_t2 = []
-pkt_t3 = []
+isFirst = True
 
 head = next(flow_file)
-first_row = next(flow_file)
-start = get_time(first_row[0])
 
 for row in flow_file:
 
@@ -55,44 +51,46 @@ for row in flow_file:
         print("Month:", timeArray.tm_mon, "Day:", timeArray.tm_mday, ",", timing % 24, "o'clock")
         timing = timing + 1
 
+    if timeArray.tm_mday < 23:
+        continue
+    if timeArray.tm_hour < 7:
+        continue
+    if timeArray.tm_hour <= 7 and timeArray.tm_min < 25:
+        continue
+    if timeArray.tm_hour == 14 and timeArray.tm_min > 30:
+        break
+
     if row[12] == "attacker":
-        end = get_time(row[0])
-        if end - start > 60:
-            if re.search("1", row[15]) is not None:
-                pkt_t1.append(counter)
-                pkt_t2.append(None)
-                pkt_t3.append(None)
-            elif re.search("2", row[15]) is not None:
-                pkt_t2.append(counter)
-                pkt_t1.append(None)
-                pkt_t3.append(None)
-            elif re.search("3", row[15]) is not None:
-                pkt_t3.append(counter)
-                pkt_t1.append(None)
-                pkt_t2.append(None)
-            counter = 0
-            start = end
-        else:
-            counter = counter + 1
-        '''if len(stamps) == 0:
-            stamps.append(get_time(row[0]))
-        else:
-            # new interval is: get_time(row[0]) - stamps[-1]
-            # ewma.append((1 - alpha) * ewma[-1] + alpha * get_time(row[0]) - stamps[-1])
-            intervals.append(get_time(row[0]) - stamps[-1])
-            stamps.append(get_time(row[0]))'''
+        flow_data.append(row)
 
-    #if timeArray.tm_mday >= 16:
-        #break
+start = get_time(flow_data[0][0])
+i = 1
+while i < len(flow_data):
 
-pics = []
-labels = ['-T1', '-T2', '-T3']
-pic_0, = plt.plot(pkt_t1, color='blue')
-pic_1, = plt.plot(pkt_t2, color='green', linestyle=':')
-pic_2, = plt.plot(pkt_t3, color='red', linestyle='--')
-pics.append(pic_0)
-pics.append(pic_1)
-pics.append(pic_2)
+    if pre_operation(row=flow_data[i]) is True:
+        continue
+    end = get_time(flow_data[i][0])
+    if end - start < 0:
+        intervals.append(0)
+    else:
+        intervals.append(end - start)
+    start = end
+
+    i = i + 1
+i = 0
+while i < len(intervals):
+    flow_file_write.writerow([intervals[i]])
+    i = i + 1
+
+'''
+pics_2 = []
+labels_2 = ['-T1', '-T2', '-T3']
+pic_1_0, = plt.plot(pkt_t1, color='blue')
+pic_1_1, = plt.plot(pkt_t2, color='green', linestyle=':')
+pic_1_2, = plt.plot(pkt_t3, color='red', linestyle='--')
+pics_2.append(pic_1_0)
+pics_2.append(pic_1_1)
+pics_2.append(pic_1_2)
 
 count_avg = 0
 avg_1 = 0
@@ -120,5 +118,5 @@ if count_avg != 0:
     print("-T3 average(pkt_per_5s):", avg_3 / count_avg)
 count_avg = 0
 
-plt.legend(pics, labels, loc='upper right')
-plt.show()
+plt.legend(pics_2, labels_2, loc='upper right')
+plt.show()'''

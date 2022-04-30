@@ -53,6 +53,7 @@ class Vertical(object):
 def horizontal_operate(timewindow, group_horizontal):
 
     global detected_flows
+    global activity_ID
 
     for connection in group_horizontal:
         connection.shown_in_current_window = False
@@ -102,6 +103,9 @@ def horizontal_operate(timewindow, group_horizontal):
                             for flow in group_horizontal[i].attached_flows:
                                 if flow not in detected_flows:
                                     detected_flows.append(flow)
+                                if flow[12] == "attacker" and flow[14] not in activity_ID:
+                                    print("detected activity:", flow[14], "at time:", timewindow[-1][0])
+                                    activity_ID.append(flow[14])
                             group_horizontal.__delitem__(i)
                             continue
                         group_horizontal[i].pre_dip.clear()
@@ -128,6 +132,9 @@ def horizontal_operate(timewindow, group_horizontal):
                     for flow in group_horizontal[i].attached_flows:
                         if flow not in detected_flows:
                             detected_flows.append(flow)
+                        if flow[12] == "attacker" and flow[14] not in activity_ID:
+                            print("detected activity:", flow[14], "at time:", timewindow[-1][0])
+                            activity_ID.append(flow[14])
                 group_horizontal.__delitem__(i)
                 continue
         i = i + 1
@@ -138,6 +145,7 @@ def horizontal_operate(timewindow, group_horizontal):
 def vertical_operate(timewindow, group_vertical):
 
     global detected_flows
+    global activity_ID
 
     for connection in group_vertical:
         connection.shown_in_current_window = False
@@ -187,6 +195,9 @@ def vertical_operate(timewindow, group_vertical):
                             for flow in group_vertical[i].attached_flows:
                                 if flow not in detected_flows:
                                     detected_flows.append(flow)
+                                if flow[12] == "attacker" and flow[14] not in activity_ID:
+                                    print("detected activity:", flow[14], "at time:", timewindow[-1][0])
+                                    activity_ID.append(flow[14])
                             group_vertical.__delitem__(i)
                             continue
                         group_vertical[i].pre_dpt.clear()
@@ -213,6 +224,9 @@ def vertical_operate(timewindow, group_vertical):
                     for flow in group_vertical[i].attached_flows:
                         if flow not in detected_flows:
                             detected_flows.append(flow)
+                        if flow[12] == "attacker" and flow[14] not in activity_ID:
+                            print("detected activity:", flow[14], "at time:", timewindow[-1][0])
+                            activity_ID.append(flow[14])
                 group_vertical.__delitem__(i)
                 continue
         i = i + 1
@@ -275,6 +289,7 @@ def counter_for_normal(time_window):
 def calculate_precision(count_total, count_total_abnormal, count_total_normal,count_detected_normal,count_detected_abnormal):
 
     global detected_flows
+    global activity_ID
 
     if count_total_abnormal == 0:
         count_total_abnormal = 1
@@ -290,6 +305,7 @@ def calculate_precision(count_total, count_total_abnormal, count_total_normal,co
     print("count_detected_abnormal", count_detected_abnormal, "count_total_abnormal", count_total_abnormal, "TPR:", TPR)
     print("count_detected_normal", count_detected_normal, "count_total_normal", count_total_normal, "FPR:", FPR)
     print("count_total", count_total)
+    print("detected activity", len(activity_ID), " IDs:", activity_ID)
     return
 
 
@@ -306,10 +322,11 @@ def pre_operation(row_to_pre_operate):
     return False
 
 
-filepath = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week1.csv"
+filepath = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week2.csv"
 # open the original csv data file
 file = csv.reader(open(filepath, 'r'))
 
+activity_ID = []  # record the activity ID that system detected
 group_horizontal = []
 group_vertical = []
 time_window = []
@@ -342,7 +359,14 @@ for row in file:
         print("Month:", timeArray.tm_mon, "Day:", timeArray.tm_mday, ",", timing % 24, "o'clock")
         timing = timing + 1
 
-    if timeArray.tm_hour >= 6:
+    if timeArray.tm_mday < 23:
+        continue
+    if timeArray.tm_hour < 7:
+        continue
+    if timeArray.tm_hour <= 7 and timeArray.tm_min < 30:
+        start = get_time(first_line[0])
+        continue
+    if timeArray.tm_hour == 14 and timeArray.tm_min > 35:
         break
 
     time_window.append(row)

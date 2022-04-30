@@ -57,11 +57,11 @@ for row in flow_file:
     if timeArray.tm_hour >= timing:
         print("Month:", timeArray.tm_mon, "Day:", timeArray.tm_mday, ",", timing % 24, "o'clock")
         timing = timing + 1
-    if timeArray.tm_mday >= 16:
+    if timeArray.tm_hour >= 6:
         break
 
     end = get_time(row[0])
-    if end - start > 300:
+    if end - start > 600:
         failed_connection_normal_host_1.append(failed_connection_normal_host_1[-1] + count_normal_host_1)
         failed_connection_normal_host_2.append(failed_connection_normal_host_2[-1] + count_normal_host_2)
         failed_connection_attacker.append(failed_connection_attacker[-1] + count_attacker)
@@ -70,7 +70,8 @@ for row in flow_file:
         count_attacker = 0
         start = end
     else:
-        if re.search('R', row[10]) is not None:
+        if re.search('R', row[10]) is not None and re.search('P', row[10]) is None and re.search('F', row[10]) is None\
+                and re.search('U', row[10]) is None:
             if row[5] == "192.168.210.5":
                 count_normal_host_1 = count_normal_host_1 + 1
             elif row[5] == "192.168.200.9":
@@ -80,9 +81,9 @@ for row in flow_file:
 
 pics = []
 labels = ['Normal Host - "192.168.210.5"', 'Normal Host - "192.168.200.9"', 'Attacker']
-pic_0, = plt.plot(failed_connection_normal_host_1, color='green')
-pic_1, = plt.plot(failed_connection_normal_host_2, color='blue', linestyle='--')
-pic_2, = plt.plot(failed_connection_attacker, color='red', linestyle=':')
+pic_0, = plt.plot(failed_connection_normal_host_1, color='black', linestyle='--')
+pic_1, = plt.plot(failed_connection_normal_host_2, color='black', linestyle=':')
+pic_2, = plt.plot(failed_connection_attacker, color='black', linestyle='-')
 pics.append(pic_0)
 pics.append(pic_1)
 pics.append(pic_2)
