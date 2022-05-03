@@ -7,118 +7,6 @@ import csv
 import time
 
 
-
-def vertical_operate(timewindow, group_vertical):
-    c_d_n = 0
-    c_d_a = 0
-
-    for connection in group_vertical:
-        connection.shown_in_current_window = False
-        connection.dpt_updated = False
-        connection.dpti.clear()
-        connection.flush_flows.clear()
-
-    # first mark the connection in current window
-    for flow in timewindow:
-        j = 0
-        isNew = True
-        while j < len(group_vertical):
-            if group_vertical[j].match(sip=flow[3], dip=flow[5]):
-                if group_vertical[j].shown_in_current_window is False:
-                    group_vertical[j].continual_count = group_vertical[j].continual_count + 1
-                group_vertical[j].shown_in_current_window = True
-                group_vertical[j].dpti.append(flow[5])
-                group_vertical[j].attached_flows.append(flow)
-                group_vertical[j].flush_flows.append(flow)
-                isNew = False
-            j = j + 1
-        if isNew:
-            group_vertical.append(Vertical(sip=flow[3], dip=flow[5], dpt=flow[6], flow=flow))
-
-    # second delete the connection which didn't appear in current window and continual count is less than 5
-    i = 0
-    while i < len(group_vertical):
-        if group_vertical[i].shown_in_current_window is True:
-            # current sip-dpt connection apears in current time window
-            if group_vertical[i].continual_count == 1:
-                for pt in group_vertical[i].dpti:
-                    group_vertical[i].pre_dpt.append(pt)
-            else:
-                # check if there is new dip for current sip-dpt connection
-                dpt_updated = False
-                for dpt in group_horizontal[i].dpti:
-                    if dpt not in group_vertical[i].pre_dpt:
-                        dpt_updated = True
-                if dpt_updated is False:
-                    if group_vertical[i].continual_count <= 5:
-                        group_vertical.__delitem__(i)
-                        continue
-                    else:
-                        # time to calulate the entropy
-                        if calculateEntropy_vertical(list_dpt=group_vertical[i].pre_dpt):
-                            # it is an abnormal connection that entropy exceed the threshold.
-                            for flow in group_vertical[i].attached_flows:
-                                if flow[12] == "attacker":
-                                    k = 0
-                                    while k < len(timewindow):
-                                        if len(timewindow[k]) == 16:
-                                            if timewindow[k] == flow:
-                                                timewindow[k].append("detected_abnormal")
-                                                c_d_a = c_d_a + 1
-                                        k = k + 1
-                                else:
-                                    k = 0
-                                    while k < len(timewindow):
-                                        if len(timewindow[k]) == 16:
-                                            if timewindow[k] == flow:
-                                                timewindow[k].append("detected_normal")
-                                                c_d_n = c_d_n + 1
-                                        k = k + 1
-                        else:
-                            group_vertical[i].pre_dpt.clear()
-                            for pt in group_vertical[i].dpti:
-                                group_vertical[i].pre_dpt.append(pt)
-                            group_vertical[i].pre_dpt = group_vertical[i].dpti
-                            group_vertical[i].attached_flows = group_vertical[i].flush_flows
-                            group_vertical[i].flush_flows.clear()
-                            group_vertical[i].continual_count = 1
-                else:
-                    # set the pre_dip
-                    u_dpt = group_vertical[i].pre_dpt + group_vertical[i].dpti
-                    group_vertical[i].pre_dpt = u_dpt
-        elif group_vertical[i].shown_in_current_window is False:
-            # current sip-dpt connection did not apears in current time window
-            if group_vertical[i].continual_count <= 5:
-                # It cannot meet the sustainability characteristics
-                group_vertical.__delitem__(i)
-                continue
-            else:
-                # time to calulate the entropy
-                if calculateEntropy_vertical(list_dpt=group_vertical[i].pre_dpt):
-                    # it is an abnormal connection that entropy exceed the threshold.
-                    for flow in group_vertical[i].attached_flows:
-                        if flow[12] == "attacker":
-                            k = 0
-                            while k < len(timewindow):
-                                if len(timewindow[k]) == 16:
-                                    if timewindow[k] == flow:
-                                        timewindow[k].append("detected_abnormal")
-                                        c_d_a = c_d_a + 1
-                                k = k + 1
-                        else:
-                            k = 0
-                            while k < len(timewindow):
-                                if len(timewindow[k]) == 16:
-                                    if timewindow[k] == flow:
-                                        timewindow[k].append("detected_normal")
-                                        c_d_n = c_d_n + 1
-                                k = k + 1
-                group_vertical.__delitem__(i)
-                continue
-        i = i + 1
-
-    return c_d_n, c_d_a
-
 def get_time(time_string):
     timeArray = time.strptime(time_string, "%Y-%m-%d %H:%M:%S.%f")
     timeStamp = float(time.mktime(timeArray))
@@ -132,39 +20,77 @@ def pre_operation(row):
     return False
 
 
-filepath = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week1.csv"
-flow_file = csv.reader(open(filepath, 'r'))
-filepath_write = "D:\Python\Python37\myexperiment\only-67-68.csv"
-flow_file_write = csv.writer(open(filepath_write, 'w', newline=""))
+filepath = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-"
+diff_path = ["week1.csv", "week2.csv"]
+flow_file_1 = csv.reader(open(filepath + diff_path[0], 'r'))
+flow_file_2 = csv.reader(open(filepath + diff_path[1], 'r'))
+flow_file = [flow_file_1, flow_file_2]
 
-flow_data = []
+count_SYN_t1 = 0
+count_SYN_t2 = 0
+count_SYN_t3 = 0
+count_UDP_t1 = 0
+count_UDP_t2 = 0
+count_UDP_t3 = 0
+count_ICMP_t1 = 0
+count_ICMP_t2 = 0
+count_ICMP_t3 = 0
+count_total = 0
+udp_activity_t1 = []
+udp_activity_t2 = []
+udp_activity_t3 = []
 
 timing = 0
 
-stamps = []
-ewma = []
-per = []
-alpha = 0.01
-end = 0
-start = 0
-sum = 0
-head = next(flow_file)
-first_line = next(flow_file)
+i = 0
+while i < len(flow_file):
+    head = next(flow_file[i])
+    for row in flow_file[i]:
 
-for row in flow_file:
-    print(row)
-    flow_data.append(row)
-    per.append(row)
-    if pre_operation(row=row) is True:
-        continue
+        timeArray = time.strptime(row[0], "%Y-%m-%d %H:%M:%S.%f")
+        if timing == 24 and timeArray.tm_hour == 0:
+            timing = 0
+        if timeArray.tm_hour >= timing:
+            print("Month:", timeArray.tm_mon, "Day:", timeArray.tm_mday, ",", timing % 24, "o'clock")
+            timing = timing + 1
 
-    timeArray = time.strptime(row[0], "%Y-%m-%d %H:%M:%S.%f")
-    if timing == 24 and timeArray.tm_hour == 0:
-        timing = 0
-    if timeArray.tm_hour >= timing:
-        print("Month:", timeArray.tm_mon, "Day:", timeArray.tm_mday, ",", timing % 24, "o'clock")
-        timing = timing + 1
-    if timeArray.tm_hour>=3:
-        break
-if per[3] == flow_data[3]:
-    print("temp")
+        count_total = count_total + 1
+
+        if row[12] == "attacker" or row[12] == "victim":
+            if re.search("UDP", row[2]) is not None:
+                if re.search("1", row[15]) is not None and re.search("nmap", row[15]) is not None:
+                    count_UDP_t1 = count_UDP_t1 + 1
+                    if row[14] not in udp_activity_t1:
+                        udp_activity_t1.append(row[14])
+                if re.search("2", row[15]) is not None and re.search("nmap", row[15]) is not None:
+                    count_UDP_t2 = count_UDP_t2 + 1
+                    if row[14] not in udp_activity_t2:
+                        udp_activity_t2.append(row[14])
+                if re.search("3", row[15]) is not None and re.search("nmap", row[15]) is not None:
+                    count_UDP_t3 = count_UDP_t3 + 1
+                    if row[14] not in udp_activity_t3:
+                        udp_activity_t3.append(row[14])
+            elif re.search("ICMP", row[2]) is not None:
+                if re.search("1", row[15]) is not None and re.search("nmap", row[15]) is not None:
+                    count_ICMP_t1 = count_ICMP_t1 + 1
+                if re.search("2", row[15]) is not None and re.search("nmap", row[15]) is not None:
+                    count_ICMP_t2 = count_ICMP_t2 + 1
+                if re.search("3", row[15]) is not None and re.search("nmap", row[15]) is not None:
+                    count_ICMP_t3 = count_ICMP_t3 + 1
+            elif re.search("TCP", row[2]) is not None:
+                if re.search("1", row[15]) is not None and re.search("nmap", row[15]) is not None:
+                    count_SYN_t1 = count_SYN_t1 + 1
+                if re.search("2", row[15]) is not None and re.search("nmap", row[15]) is not None:
+                    count_SYN_t2 = count_SYN_t2 + 1
+                if re.search("3", row[15]) is not None and re.search("nmap", row[15]) is not None:
+                    count_SYN_t3 = count_SYN_t3 + 1
+    i = i + 1
+
+print("SYN:(T1)", count_SYN_t1, "(T2)", count_SYN_t2, "(T3)", count_SYN_t3,
+      "total:", count_SYN_t1 + count_SYN_t2 + count_SYN_t3)
+print("UDP:(T1)", count_UDP_t1, "(T2)", count_UDP_t2, "(T3)", count_UDP_t3,
+      "total:", count_UDP_t1 + count_UDP_t2 + count_UDP_t3)
+print("UDP activities:(T1)", udp_activity_t1, "(T2)", udp_activity_t2, "(T3)", udp_activity_t3)
+print("ICMP:(T1)", count_ICMP_t1, "(T2)", count_ICMP_t2, "(T3)", count_ICMP_t3,
+      "total:", count_ICMP_t1 + count_ICMP_t2 + count_ICMP_t3)
+print("Total:", count_total)

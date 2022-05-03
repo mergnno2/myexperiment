@@ -11,6 +11,11 @@ from matplotlib.pyplot import MultipleLocator
 
 
 # import matplotlib.pyplot as plt
+class Host_temp(object):
+    def __init__(self, IP):
+        self.IP = IP
+        self.window_ewma = []
+        self.window_ewma_time_stamp = []
 
 
 class Host(object):
@@ -82,6 +87,8 @@ def sequential_test(success_num, failed_num, host):
 
 
 def detect_abnormal(flow):
+    global hosts_to_print
+
     # count detected abnormal flows
     c_d_a = 0
     # count detected normal flows
@@ -107,6 +114,22 @@ def detect_abnormal(flow):
             else:
                 activity_end_test = np.mean(hosts[i].window_ewma)
             if get_time(flow[0]) - hosts[i].tl > 35 * activity_end_test:
+                j = 0
+                temp_test = True
+                while j < len(hosts_to_print):
+                    if IP == hosts_to_print[j].IP:
+                        temp_test = False
+                        break
+                    j = j + 1
+                if temp_test:
+                    hosts_to_print.append(Host_temp(IP=IP))
+                    hosts_to_print[-1].window_ewma = hosts_to_print[-1].window_ewma + hosts[i].window_ewma[1:]
+                    hosts_to_print[-1].window_ewma_time_stamp = hosts_to_print[-1].window_ewma_time_stamp + \
+                                                               hosts[i].window_ewma_time_stamp
+                else:
+                    hosts_to_print[j].window_ewma = hosts_to_print[j].window_ewma + hosts[i].window_ewma[1:]
+                    hosts_to_print[j].window_ewma_time_stamp = hosts_to_print[j].window_ewma_time_stamp + \
+                                                               hosts[i].window_ewma_time_stamp
                 hosts.__delitem__(i)
                 isNew = True
             else:
@@ -142,7 +165,8 @@ def detect_abnormal(flow):
             ewma_value = max_window_len
         current_host.window_ewma.append(ewma_value)
         abnormal_flow_time_stamp = time.strptime(flow[0], "%Y-%m-%d %H:%M:%S.%f")
-        current_host.window_ewma_time_stamp.append(str(abnormal_flow_time_stamp.tm_min))
+        current_host.window_ewma_time_stamp.append(
+            str(abnormal_flow_time_stamp.tm_hour) + ":" + str(abnormal_flow_time_stamp.tm_min))
         # update the last seen time stamp of the abnormal flow that caused by the host
         current_host.tl = ti
 
@@ -192,9 +216,9 @@ def detect_abnormal(flow):
                         c_d_n = c_d_n + 1
             current_host.ratio = 1
             current_host.flows.clear()
-        #elif test_result == 2:
-            #current_host.ratio = 1
-            #current_host.flows.clear()
+        # elif test_result == 2:
+        # current_host.ratio = 1
+        # current_host.flows.clear()
         # append the sample window length according to the time stamp of current flow
         current_host.window_sample.append(ti - current_host.tl)
         # append the EWMA window length according to the EWMA algorithm
@@ -206,7 +230,8 @@ def detect_abnormal(flow):
             ewma_value = max_window_len
         current_host.window_ewma.append(ewma_value)
         abnormal_flow_time_stamp = time.strptime(flow[0], "%Y-%m-%d %H:%M:%S.%f")
-        current_host.window_ewma_time_stamp.append(str(abnormal_flow_time_stamp.tm_min))
+        current_host.window_ewma_time_stamp.append(
+            str(abnormal_flow_time_stamp.tm_hour) + ":" + str(abnormal_flow_time_stamp.tm_min))
 
         current_host.ts = current_host.ts + current_host.Td + success_num * n_ewma
         current_host.tl = ti
@@ -311,28 +336,34 @@ def print_timing(row_to_print_time):
         print("Month:", timeArray.tm_mon, "Day:", timeArray.tm_mday, ",", timing % 24, "o'clock")
         timing = timing + 1
 
-    '''if timeArray.tm_mday < 23:
+    if timeArray.tm_mday < 23:
         return 1
     if timeArray.tm_hour < 7:
         return 1
-    if timeArray.tm_hour <= 7 and timeArray.tm_min < 30:
+    if timeArray.tm_hour <= 7 and timeArray.tm_min < 25:
         return 1
-    if timeArray.tm_hour == 14 and timeArray.tm_min > 35:
-        return 2'''
-    #if timeArray.tm_mday >= 16:
-        #return 2
+    if timeArray.tm_hour == 14 and timeArray.tm_min > 30:
+        return 2
+    # if timeArray.tm_mday >= 16
+    # return 2
     return 0
 
 
-filepath_week_1 = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week3.csv"
-filepath_week_2 = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week4.csv"
+filepath_week_1 = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week1.csv"
+filepath_week_2 = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week2.csv"
+filepath_write = "D:\Python\Python37\myexperiment\portScanningDetection\\fig_2_data.csv"
 
 # open the original csv data file
 flow_file_week_1 = csv.reader(open(filepath_week_1, 'r'))
 flow_file_week_2 = csv.reader(open(filepath_week_2, 'r'))
+flow_file_write = csv.writer(open(filepath_write, 'w', newline=''))
 # write_file = csv.writer(open(filepath2, 'w', newline=""))
 
 hosts = []  # record the hosts which is related to abnormal flows and ready to detected by the algorithm
+hosts_to_print = []
+hosts_to_print.append(Host_temp(IP="192.168.220.15"))
+hosts_to_print.append(Host_temp(IP="10784_4"))
+hosts_to_print.append(Host_temp(IP="192.168.220.16"))
 
 theta0 = 0.8
 theta1 = 0.2
@@ -341,7 +372,7 @@ eta1 = 99
 beta = 0.2  # beta is the attribute of the EWMA algorithm
 default_window_len = 60
 min_window_len = 3
-max_window_len = 1800
+max_window_len = 900
 timing = 0
 
 # counters for calculate the precision
@@ -354,6 +385,7 @@ activity_ID = []  # record the activity ID that system detected
 
 attribute_line = next(flow_file_week_1)
 for row in flow_file_week_1:
+    print(row)
 
     # step 1, finish some filtering step
     if pre_operation(row_to_pre_operate=row):
@@ -377,7 +409,6 @@ for row in flow_file_week_1:
     count_total_normal = count_total_normal + counter_for_normal(row_to_count_normal=row)
     count_detected_abnormal = count_detected_abnormal + count_a
     count_detected_normal = count_detected_normal + count_n
-
 
 # repeat the above steps in week 2
 
@@ -422,3 +453,66 @@ calculate_precision(count_total=count_total, count_total_abnormal=count_total_ab
         plt.plot(range(len(h.window_ewma)), h.window_ewma, color='red')
         plt.show()
         break'''
+i = 0
+'''while i < len(hosts):
+    if hosts[i].IP == "192.168.220.15":
+        hosts_to_print.append(hosts[i])
+    elif hosts[i].IP == "10784_4":
+        hosts_to_print.append(hosts[i])
+    elif hosts[i].IP == "10022_249":
+        hosts_to_print.append(hosts[i])
+    i = i + 1'''
+
+i = 0
+while i < len(hosts_to_print):
+    if len(hosts_to_print[i].window_ewma_time_stamp) < 100:
+        hosts_to_print.__delitem__(i)
+        continue
+    if hosts_to_print[i].IP != "10321_204" and hosts_to_print[i].IP != "11184_35" and hosts_to_print[i].IP != "192.168.220.15":
+        hosts_to_print.__delitem__(i)
+        continue
+    i = i + 1
+
+i = 0
+while i < len(hosts_to_print):
+    flow_file_write.writerow([hosts_to_print[i].IP])
+    hour = 7
+    minute = 25
+    while hour <= 14:
+        while minute < 60:
+            if hour == 14:
+                # write code here
+                isNone = True
+                j = 0
+                while j < len(hosts_to_print[i].window_ewma_time_stamp):
+                    if hosts_to_print[i].window_ewma_time_stamp[j] == (str(hour) + ":" + str(minute)):
+                        isNone = False
+                        break
+                    j = j + 1
+                if isNone:
+                    row_to_write = [str(hour) + ":" + str(minute), None]
+                    flow_file_write.writerow(row_to_write)
+                else:
+                    row_to_write = [str(hour) + ":" + str(minute), hosts_to_print[i].window_ewma[j + 1]]
+                    flow_file_write.writerow(row_to_write)
+                if minute >= 30:
+                    break
+            else:
+                # write code here
+                isNone = True
+                j = 0
+                while j < len(hosts_to_print[i].window_ewma_time_stamp):
+                    if hosts_to_print[i].window_ewma_time_stamp[j] == (str(hour) + ":" + str(minute)):
+                        isNone = False
+                        break
+                    j = j + 1
+                if isNone:
+                    row_to_write = [str(hour) + ":" + str(minute), None]
+                    flow_file_write.writerow(row_to_write)
+                else:
+                    row_to_write = [str(hour) + ":" + str(minute), hosts_to_print[i].window_ewma[j + 1]]
+                    flow_file_write.writerow(row_to_write)
+            minute = minute + 1
+        minute = 0
+        hour = hour + 1
+    i = i + 1
