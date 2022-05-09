@@ -73,7 +73,6 @@ def sip_detect(sip,row,list_d):
     return outcome,top_sip_dip[0][0]
 
 
-
 def dip_detect(dip, row, list_d):
     dip_sip = {}
     dip_dpt = {}
@@ -158,7 +157,7 @@ def sip_dip_detect(sip,dip,row,list_d):
     for ln in list_d:
         if row[ln][1] == sip:
             if row[ln][2] == dip:
-                if row[ln][9]<100:      #Bytes<100
+                if int(row[ln][9])<100:      #Bytes<100
                     term_len += 1
 
                     # Packets += int(row[ln][8])
@@ -169,7 +168,7 @@ def sip_dip_detect(sip,dip,row,list_d):
                     else:
                         sip_dip[row[ln][5]] = 1
 
-                    if row[ln][9] > 200:  # Bytes<100
+                    if int(row[ln][9]) > 200:  # Bytes<100
                         remove_dpt.append(row[ln][2])
                         # term_len += 1
     for dpt in sip_dip.keys():

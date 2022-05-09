@@ -11,7 +11,7 @@ cursor0.close()
 #1,501,856
 # 1501856
 cursor=connect.cursor()
-filename='E:/cidds/WISENT-CIDDS-001/CIDDS-001/traffic/OpenStack/CIDDS-001-internal-week1.csv'
+filename='D:/Python/Python37/myexperiment/portScanningDetection/CIDDS-001/traffic/OpenStack/CIDDS-001-internal-week1.csv'
 file2 = open(filename, 'rb')
 lines = len(file2.readlines())
 file2.close()

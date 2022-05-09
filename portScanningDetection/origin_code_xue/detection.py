@@ -13,7 +13,7 @@ cursor1 = connect.cursor()
 
 # 从12:00开始到14:15结束. 日期3.17
 #               0    1      2       3       4      5    6      7      8     9    10  WHERE  and m_level BETWEEN 0 AND 1440
-s1 = "SELECT  Date,Src_IP,Dst_IP,m_level,Src_Pt,Dst_Pt,Proto,Flags,Packets,Bytes,num FROM week1_21 where Src_IP='192.168.220.16' "
+s1 = "SELECT  Date,Src_IP,Dst_IP,m_level,Src_Pt,Dst_Pt,Proto,Flags,Packets,Bytes FROM week1_21"
 cursor1.execute(s1)
 row = cursor1.fetchall()
 length = len(row)
@@ -66,7 +66,10 @@ for pre_num in range(length):
     h, m, s = second.split(":")
     # a,b=s.split(".") 2017-03-21 00:00:21
     year, mon, day1 = day.split("-")
-    time_s = (((int(day1) - 21) * 24 + int(h)) * 60 + int(m)) * 60 + int(s)
+    time_s = (((int(day1) - 21) * 24 +
+               int(h)) * 60 +
+              int(m)) * 60 + \
+             int(float(s))
 
     # 每秒的流数量。
     if time_s > begin:
@@ -145,14 +148,14 @@ for num in range(pre_num, length):
     # a, b = s.split(".")
     # time_s = ((int(h)) * 60 + int(m)-0) * 60 + int(s)
     year, mon, day1 = day.split("-")
-    time_s = (((int(day1) - 21) * 24 + int(h)) * 60 + int(m)) * 60 + int(s)
+    time_s = (((int(day1) - 21) * 24 + int(h)) * 60 + int(m)) * 60 + int(float(s))
     # 每秒的流数量。
 
     while time_s > begin:
         begin = begin + 1
 
         if (begin % 120) == 0:
-            start = time.clock()
+            start = 0
 
             # 检查icmp
             top_ping_sip = sorted(ping_sip.items(), key=lambda x: x[1], reverse=True)  # 按值数递减排序
@@ -164,7 +167,7 @@ for num in range(pre_num, length):
                     if outputA == '100':
                         detection = 'pingScan'  # 出现ping攻击啦，赶快标记。
                         # sign标记函数,更新attack_ping
-                        detection_core.sign(top_ping_sip[n][0], row, ping_list, attack_ping)
+                        #detection_core.sign(top_ping_sip[n][0], row, ping_list, attack_ping)
                 else:
                     break
 
@@ -179,7 +182,7 @@ for num in range(pre_num, length):
                         outputB = detection_core.dip_detect(topdip, row, brute_list)
                         if outputB == '001':
                             detection = 'brute'
-                            detection_core.sign(top_brute_sip[n][0], row, brute_list, attack_brute)
+                            #detection_core.sign(top_brute_sip[n][0], row, brute_list, attack_brute)
 
                 else:
                     break
@@ -197,17 +200,18 @@ for num in range(pre_num, length):
                         # print(float(top_SYN_sip[n][1]))
 
                         if float(ack_count) / float(top_SYN_sip[n][1]) < 0.9:
-
-                            detection_core.find(top_SYN_sip[n][0], row, last_list, attack_portA, attack_portB)
+                            pass
+                            #detection_core.find(top_SYN_sip[n][0], row, last_list, attack_portA, attack_portB)
                     else:
-                        detection_core.find(top_SYN_sip[n][0], row, last_list, attack_portA, attack_portB)
+                        pass
+                        #detection_core.find(top_SYN_sip[n][0], row, last_list, attack_portA, attack_portB)
 
                     ddd.append(top_SYN_sip[n][0])
 
                 else:
                     break
 
-            endd = last_list.pop()
+            #endd = last_list.pop()
 
             print(date)
 
@@ -237,8 +241,8 @@ for num in range(pre_num, length):
                         brute_dip.pop(row[dlt][2])
 
                 # 构建其他类型的sip，dip字典，对大于一定数量的IP求联合熵,主要是针对portscan类型
-                # if dlt in last_list:
-                last_list.remove(dlt)
+                if dlt in last_list:
+                    last_list.remove(dlt)
 
                 if row[dlt][7][4] == 'S':
                     if SYN_sip[row[dlt][1]] > 1:
@@ -251,7 +255,7 @@ for num in range(pre_num, length):
                         else:
                             ACKSYN_sip.pop(row[dlt][1])
 
-            elapsed = (time.clock() - start)
+            elapsed = 0
             time_distrition.append(elapsed)
             # 更新数组指针位置
             long_num[0] = num
@@ -375,7 +379,7 @@ for num in range(pre_num, length):
             else:
                 ACKSYN_sip[row[num][1]] = 1
 
-elapsed = (time.clock() - start)
+elapsed = 0
 print("Time used:", elapsed)
 
 print('--------------------------')

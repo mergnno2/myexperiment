@@ -333,7 +333,7 @@ time_window = []
 detected_flows = []
 window_num = 5
 window_len = 120
-threshold = 0.65
+threshold = 0.75
 timing = 0
 
 count_total = 0

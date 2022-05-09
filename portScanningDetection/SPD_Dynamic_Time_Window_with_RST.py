@@ -6,8 +6,6 @@ import pandas as pd
 import time
 import numpy as np
 import csv
-import matplotlib.pyplot as plt
-from matplotlib.pyplot import MultipleLocator
 
 
 # import matplotlib.pyplot as plt
@@ -176,25 +174,27 @@ def detect_abnormal(flow):
                     if flow[12] == "victim":
                         c_d_a = c_d_a + 1
                         # record the detected activity ID
-                        if flow[14] not in activity_ID:
-                            print("detected activity:", flow[14], "at time:", current_host.flows[-1])
-                            activity_ID.append(flow[14])
+                        activity_result = activity_detected.get(flow[14])
+                        if activity_result is None:
+                            print("detected activity:", flow[14], "at time:", current_host.flows[-1][0])
+                            activity_detected.update({flow[14]: get_time(current_host.flows[-1][0])})
                     else:
                         c_d_n = c_d_n + 1
                 elif re.search("ICMP", flow[2]) is not None:
                     if flow[12] == "victim":
                         c_d_a = c_d_a + 1
                         # record the detected activity ID
-                        if flow[14] not in activity_ID:
-                            print("detected activity:", flow[14], "at time:", current_host.flows[-1])
-                            activity_ID.append(flow[14])
+                        activity_result = activity_detected.get(flow[14])
+                        if activity_result is None:
+                            print("detected activity:", flow[14], "at time:", current_host.flows[-1][0])
+                            activity_detected.update({flow[14]: get_time(current_host.flows[-1][0])})
                     else:
                         c_d_n = c_d_n + 1
             current_host.ratio = 1
             current_host.flows.clear()
-        #elif test_result == 2:
-            #current_host.ratio = 1
-            #current_host.flows.clear()
+        # elif test_result == 2:
+        # current_host.ratio = 1
+        # current_host.flows.clear()
         # append the sample window length according to the time stamp of current flow
         current_host.window_sample.append(ti - current_host.tl)
         # append the EWMA window length according to the EWMA algorithm
@@ -249,54 +249,26 @@ def calculate_precision(count_total, count_total_abnormal, count_total_normal,
         count_total_abnormal = 1
     if count_total_normal == 0:
         count_total_normal = 1
+
+    # calculate detection delay here
+    delay = []
+    detected_ids = activity_detected.keys()
+    for id in detected_ids:
+        activity_start_time = activity_total.get(id)
+        activity_detect_time = activity_detected.get(id)
+        delay.append(activity_detect_time - activity_start_time)
+    delay_mean = 0
+    for item in delay:
+        delay_mean = delay_mean + item
+    delay_mean = delay_mean / len(delay)
+
     TPR = count_detected_abnormal / count_total_abnormal
     FPR = count_detected_normal / count_total_normal
     print("count_detected_abnormal", count_detected_abnormal, "count_total_abnormal", count_total_abnormal, "TPR:", TPR)
     print("count_detected_normal", count_detected_normal, "count_total_normal", count_total_normal, "FPR:", FPR)
     print("count_total", count_total)
-    print("detected activity", len(activity_ID), " IDs:", activity_ID)
-    return
-
-
-def draw_ewma_estimating():
-    pics = []
-    labels = []
-    color_set = ['red', 'black', 'yellow', 'blue']
-    color_set_index = 0
-    max_show_hosts = 0
-
-    for h in hosts:
-        if max_show_hosts > 1:
-            break
-        max_show_hosts = max_show_hosts + 1
-        # filter those hosts that cause few abnormal flows
-        if len(h.window_ewma_time_stamp) <= 1:
-            continue
-        labels.append(str(h.IP))
-        if color_set_index > 3:
-            break
-        win_ewma = h.window_ewma[1:]
-        x_axis = list()
-        y_axis = list()
-        i = 0
-        while i < len(h.window_ewma_time_stamp):
-            if h.window_ewma_time_stamp[i] not in x_axis:
-                x_axis.append(h.window_ewma_time_stamp[i])
-                y_axis.append(win_ewma[i])
-            i = i + 1
-
-        plt.subplot(2, 1, max_show_hosts)
-        plt.xlabel('时间（min）', fontproperties="simhei")
-        plt.ylabel('EWMA 值（s）', fontproperties="simhei")
-        x_major_locator = MultipleLocator(5)
-        y_major_locator = MultipleLocator(10)
-        ax = plt.gca()
-        ax.xaxis.set_major_locator(x_major_locator)
-        ax.yaxis.set_major_locator(y_major_locator)
-        x, = plt.plot(x_axis, y_axis, color=color_set[color_set_index])
-        color_set_index = color_set_index + 1
-
-    plt.show()
+    print("detected activity", len(activity_detected), " IDs:", activity_detected.keys())
+    print("detection delay mean:", delay_mean)
     return
 
 
@@ -311,25 +283,31 @@ def print_timing(row_to_print_time):
         print("Month:", timeArray.tm_mon, "Day:", timeArray.tm_mday, ",", timing % 24, "o'clock")
         timing = timing + 1
 
-    '''if timeArray.tm_mday < 23:
+    if timeArray.tm_mday < 16:
         return 1
-    if timeArray.tm_hour < 7:
+    if timeArray.tm_hour < 12:
         return 1
-    if timeArray.tm_hour <= 7 and timeArray.tm_min < 30:
-        return 1
-    if timeArray.tm_hour == 14 and timeArray.tm_min > 35:
-        return 2'''
-    #if timeArray.tm_mday >= 16:
-        #return 2
+    if timeArray.tm_hour == 22:
+        return 2
+    # if timeArray.tm_mon > 3 or timeArray.tm_mday >= 16:
+    # return 2
     return 0
 
 
-filepath_week_1 = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week3.csv"
-filepath_week_2 = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week4.csv"
+attack_log_filepath = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\attack_logs\\attack_logs_intern.csv"
+filepath_basic = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\\"
+filepath_subfiles = ["CIDDS-001-internal-week1.csv", "CIDDS-001-internal-week2.csv",
+                     "CIDDS-001-internal-week3.csv", "CIDDS-001-internal-week4.csv"]
+filepath_total = []
+
+for subfile in filepath_subfiles:
+    filepath_total.append(filepath_basic + subfile)
 
 # open the original csv data file
-flow_file_week_1 = csv.reader(open(filepath_week_1, 'r'))
-flow_file_week_2 = csv.reader(open(filepath_week_2, 'r'))
+attack_log_file = csv.reader(open(attack_log_filepath, 'r'))
+flow_file = []
+for file in filepath_total:
+    flow_file.append(csv.reader(open(file, 'r')))
 # write_file = csv.writer(open(filepath2, 'w', newline=""))
 
 hosts = []  # record the hosts which is related to abnormal flows and ready to detected by the algorithm
@@ -340,9 +318,9 @@ eta0 = 0.01
 eta1 = 99
 beta = 0.2  # beta is the attribute of the EWMA algorithm
 default_window_len = 60
-min_window_len = 3
+min_window_len = 3  # second
 max_window_len = 1800
-timing = 0
+timing = 0  # print time information
 
 # counters for calculate the precision
 count_total = 0
@@ -350,75 +328,49 @@ count_total_normal = 0
 count_total_abnormal = 0
 count_detected_abnormal = 0
 count_detected_normal = 0
-activity_ID = []  # record the activity ID that system detected
+activity_total = {}  # record the total scan activities
+activity_detected = {}  # record the activities that system detected and also record the time
 
-attribute_line = next(flow_file_week_1)
-for row in flow_file_week_1:
+attribute_line = next(attack_log_file)
+for log in attack_log_file:
+    if re.search("nmap", log[7]) is not None:
+        activity_id = log[5]
+        if activity_id == '1':
+            start_time = 1489507276.0  # the first attack start at 3.15.00:00
+        else:
+            start_time = float(get_time(log[1]))
+        activity_total.update({activity_id: start_time})
 
-    # step 1, finish some filtering step
-    if pre_operation(row_to_pre_operate=row):
-        continue
+file_index = 0
+while file_index < len(flow_file):
+    attribute_line = next(flow_file[file_index])
+    for row in flow_file[file_index]:
 
-    # step 2, print the timing information
-    time_to_end = print_timing(row_to_print_time=row)
-    if time_to_end == 1:
-        continue
-    elif time_to_end == 2:
-        break
+        # step 1, finish some filtering step
+        if pre_operation(row_to_pre_operate=row):
+            continue
 
-    # step 3
-    # then testify each flow(row) if its ICMP error or a TCP-RST package
-    # then run the abnormal detection algorithm using dynamic time window
-    (count_a, count_n) = detect_abnormal(flow=row)
+        # step 2, print the timing information
+        time_to_end = print_timing(row_to_print_time=row)
+        if time_to_end == 1:
+            continue
+        elif time_to_end == 2:
+            break
 
-    # step 4, update all the counters for calculate the TP and FP
-    count_total = count_total + 1
-    count_total_abnormal = count_total_abnormal + counter_for_abnormal(row_to_count_abnormal=row)
-    count_total_normal = count_total_normal + counter_for_normal(row_to_count_normal=row)
-    count_detected_abnormal = count_detected_abnormal + count_a
-    count_detected_normal = count_detected_normal + count_n
+        # step 3
+        # then testify each flow(row) if its ICMP error or a TCP-RST package
+        # then run the abnormal detection algorithm using dynamic time window
+        (count_a, count_n) = detect_abnormal(flow=row)
 
-
-# repeat the above steps in week 2
-
-attribute_line = next(flow_file_week_2)
-
-for row in flow_file_week_2:
-
-    # step 1, finish some filtering step
-    if pre_operation(row_to_pre_operate=row):
-        continue
-
-    # step 2, print the timing information
-    time_to_end = print_timing(row_to_print_time=row)
-    if time_to_end == 1:
-        continue
-    elif time_to_end == 2:
-        break
-
-    # step 3
-    # then testify each flow(row) if its ICMP error or a TCP-RST package
-    # then run the abnormal detection algorithm using dynamic time window
-    (count_a, count_n) = detect_abnormal(flow=row)
-
-    # step 4, update all the counters for calculate the TP and FP
-    count_total = count_total + 1
-    count_total_abnormal = count_total_abnormal + counter_for_abnormal(row_to_count_abnormal=row)
-    count_total_normal = count_total_normal + counter_for_normal(row_to_count_normal=row)
-    count_detected_abnormal = count_detected_abnormal + count_a
-    count_detected_normal = count_detected_normal + count_n
+        # step 4, update all the counters for calculate the TP and FP
+        count_total = count_total + 1
+        count_total_abnormal = count_total_abnormal + counter_for_abnormal(row_to_count_abnormal=row)
+        count_total_normal = count_total_normal + counter_for_normal(row_to_count_normal=row)
+        count_detected_abnormal = count_detected_abnormal + count_a
+        count_detected_normal = count_detected_normal + count_n
+    file_index = file_index + 1
 
 # step 5, once the program ends, we can calculate the precision of the algorithm
 calculate_precision(count_total=count_total, count_total_abnormal=count_total_abnormal,
                     count_total_normal=count_total_normal, count_detected_abnormal=count_detected_abnormal,
                     count_detected_normal=count_detected_normal)
-# step 6, to show the ewma estimation of each abnormal host's scan rate
-# draw_ewma_estimating()
-'''for h in hosts:
-    if h.IP == "192.168.220.16":
-        plt.subplot(2, 1, 1)
-        plt.plot(range(len(h.window_sample)), h.window_sample, color='black')
-        plt.subplot(2, 1, 2)
-        plt.plot(range(len(h.window_ewma)), h.window_ewma, color='red')
-        plt.show()
-        break'''
