@@ -159,10 +159,10 @@ def detect_abnormal(flow):
         # append the EWMA window length according to the EWMA algorithm
         ewma_value = (1 - beta) * current_host.window_ewma[-1] + beta * current_host.window_sample[-1]
         # make sure the ewma value is limited by the range of [5s,1800s]
-        if ewma_value < min_window_len:
+        '''if ewma_value < min_window_len:
             ewma_value = min_window_len
         elif ewma_value > max_window_len:
-            ewma_value = max_window_len
+            ewma_value = max_window_len'''
         current_host.window_ewma.append(ewma_value)
         abnormal_flow_time_stamp = time.strptime(flow[0], "%Y-%m-%d %H:%M:%S.%f")
         current_host.window_ewma_time_stamp.append(
@@ -224,10 +224,10 @@ def detect_abnormal(flow):
         # append the EWMA window length according to the EWMA algorithm
         ewma_value = (1 - beta) * current_host.window_ewma[-1] + beta * current_host.window_sample[-1]
         # make sure the ewma value is limited by the range of [5s,1800s]
-        if ewma_value < min_window_len:
+        '''if ewma_value < min_window_len:
             ewma_value = min_window_len
         elif ewma_value > max_window_len:
-            ewma_value = max_window_len
+            ewma_value = max_window_len'''
         current_host.window_ewma.append(ewma_value)
         abnormal_flow_time_stamp = time.strptime(flow[0], "%Y-%m-%d %H:%M:%S.%f")
         current_host.window_ewma_time_stamp.append(
@@ -338,9 +338,9 @@ def print_timing(row_to_print_time):
 
     if timeArray.tm_mday < 16:
         return 1
-    if timeArray.tm_hour < 12:
+    if timeArray.tm_hour < 13:
         return 1
-    if timeArray.tm_hour == 22:
+    if timeArray.tm_hour == 17:
         return 2
     #if timeArray.tm_hour >= 12:
         #return 2
@@ -440,9 +440,9 @@ while j < len(hosts_to_print):
 i = 0
 while i < len(hosts_to_print):
     flow_file_write.writerow([hosts_to_print[i].IP])
-    hour = 12
+    hour = 13
     minute = 0
-    while hour <= 22:
+    while hour <= 17:
         while minute < 60:
             # write code here
             isNone = True

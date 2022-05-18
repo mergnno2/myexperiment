@@ -7,6 +7,29 @@ import csv
 import time
 
 
+
+def check_suspicious(flow):
+    # check one flow if it is a suspicious flow by checking the flags
+
+    # return types:
+    # 0 - not suspicious
+    # 1 - RST error
+    # 2 - ICMP error
+    if re.search('F', flow[10]) is not None:
+        return 0
+    elif re.search('S', flow[10]) is not None:
+        return 0
+    elif re.search('U', flow[10]) is not None:
+        return 0
+    elif re.search('P', flow[10]) is not None:
+        return 0
+    elif re.search('R', flow[10]) is not None:
+        return 1
+    elif re.search("3\.", flow[6]) is not None:
+        return 2
+    return 0
+
+
 def get_time(time_string):
     timeArray = time.strptime(time_string, "%Y-%m-%d %H:%M:%S.%f")
     timeStamp = float(time.mktime(timeArray))
@@ -28,6 +51,7 @@ flow_file.append(csv.reader(open(filepath + diff_path[1], 'r')))
 flow_file.append(csv.reader(open(filepath + diff_path[2], 'r')))
 flow_file.append(csv.reader(open(filepath + diff_path[3], 'r')))
 
+count_total_suspicious = 0
 count_dos = 0
 count_normal = 0
 count_SYN_t1 = 0
@@ -63,6 +87,9 @@ while i < len(flow_file):
             count_normal = count_normal + 1
         if re.search("dos", row[13]) is not None:
             count_dos = count_dos + 1
+
+        if check_suspicious(row) != 0:
+            count_total_suspicious = count_total_suspicious + 1
 
         if row[12] == "attacker" or row[12] == "victim":
             if re.search("UDP", row[2]) is not None:
@@ -110,3 +137,4 @@ print("ICMP:(T1)", count_ICMP_t1, count_ICMP_t1 / count_total, "(T2)", count_ICM
       "total:", count_ICMP_t1 + count_ICMP_t2 + count_ICMP_t3, "percentage:",
       (count_ICMP_t1 + count_ICMP_t2 + count_ICMP_t3) / count_total)
 print("Total:", count_total)
+print("total suspicious", count_total_suspicious)

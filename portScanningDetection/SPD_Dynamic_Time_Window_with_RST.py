@@ -81,15 +81,15 @@ def sequential_test(success_num, failed_num, host):
 
 def detect_abnormal(flow):
     # count detected abnormal flows
-    c_d_a = 0
+    c_d_A = 0
     # count detected normal flows
-    c_d_n = 0
+    c_d_B = 0
 
     # the main process of the algorithm using dynamic time window
     suspicious_type = check_suspicious(flow=flow)
     if suspicious_type == 0:
         # it's not a suspicious flow
-        return c_d_a, c_d_n
+        return c_d_A, c_d_B
     else:
         IP = flow[5]
     # it is a suspicious flow, handle this flow by detection algorithm
@@ -118,7 +118,7 @@ def detect_abnormal(flow):
         hosts.append(current_host)
         current_host.flows.append(flow)
         # and if it's the first abnormal flow of the given host, do nothing and waiting for second one.
-        return c_d_a, c_d_n
+        return c_d_A, c_d_B
 
     # record the abnormal flow
     current_host.flows.append(flow)
@@ -172,24 +172,24 @@ def detect_abnormal(flow):
             for flow in current_host.flows:
                 if re.search('R', flow[10]) is not None:
                     if flow[12] == "victim":
-                        c_d_a = c_d_a + 1
+                        c_d_A = c_d_A + 1
                         # record the detected activity ID
                         activity_result = activity_detected.get(flow[14])
                         if activity_result is None:
                             print("detected activity:", flow[14], "at time:", current_host.flows[-1][0])
                             activity_detected.update({flow[14]: get_time(current_host.flows[-1][0])})
                     else:
-                        c_d_n = c_d_n + 1
+                        c_d_B = c_d_B + 1
                 elif re.search("ICMP", flow[2]) is not None:
                     if flow[12] == "victim":
-                        c_d_a = c_d_a + 1
+                        c_d_A = c_d_A + 1
                         # record the detected activity ID
                         activity_result = activity_detected.get(flow[14])
                         if activity_result is None:
                             print("detected activity:", flow[14], "at time:", current_host.flows[-1][0])
                             activity_detected.update({flow[14]: get_time(current_host.flows[-1][0])})
                     else:
-                        c_d_n = c_d_n + 1
+                        c_d_B = c_d_B + 1
             current_host.ratio = 1
             current_host.flows.clear()
         # elif test_result == 2:
@@ -213,7 +213,7 @@ def detect_abnormal(flow):
         current_host.Td = current_host.window_ewma[-1]
         current_host.alpha = 1
 
-    return c_d_a, c_d_n
+    return c_d_A, c_d_B
 
 
 def get_time(time_string):
@@ -229,26 +229,24 @@ def pre_operation(row_to_pre_operate):
     return False
 
 
-def counter_for_abnormal(row_to_count_abnormal):
-    if re.search('R', row_to_count_abnormal[10]) is not None and row_to_count_abnormal[12] == "victim":
-        return 1
-    elif re.search("ICMP", row_to_count_abnormal[2]) is not None and row_to_count_abnormal[12] == "victim":
+def counter_for_victim(row_to_count_victim):
+    if row_to_count_victim[12] == "victim":
         return 1
     return 0
 
 
-def counter_for_normal(row_to_count_normal):
-    if row_to_count_normal[12] == "normal":
+def counter_for_other(row_to_count_other):
+    if row_to_count_other[12] != "victim":
         return 1
     return 0
 
 
-def calculate_precision(count_total, count_total_abnormal, count_total_normal,
-                        count_detected_abnormal, count_detected_normal):
-    if count_total_abnormal == 0:
-        count_total_abnormal = 1
-    if count_total_normal == 0:
-        count_total_normal = 1
+def calculate_precision(count_total, count_total_victim, count_total_other,
+                        count_detected_victim, count_detected_other):
+    if count_total_victim == 0:
+        count_total_victim = 1
+    if count_total_other == 0:
+        count_total_other = 1
 
     # calculate detection delay here
     delay = []
@@ -262,10 +260,10 @@ def calculate_precision(count_total, count_total_abnormal, count_total_normal,
         delay_mean = delay_mean + item
     delay_mean = delay_mean / len(delay)
 
-    TPR = count_detected_abnormal / count_total_abnormal
-    FPR = count_detected_normal / count_total_normal
-    print("count_detected_abnormal", count_detected_abnormal, "count_total_abnormal", count_total_abnormal, "TPR:", TPR)
-    print("count_detected_normal", count_detected_normal, "count_total_normal", count_total_normal, "FPR:", FPR)
+    TPR = count_detected_victim / count_total_victim
+    FPR = count_detected_other / count_total_other
+    print("count_detected_victim", count_detected_victim, "count_total_victim", count_total_victim, "TPR:", TPR)
+    print("count_detected_other", count_detected_other, "count_total_other", count_total_other, "FPR:", FPR)
     print("count_total", count_total)
     print("detected activity", len(activity_detected), " IDs:", activity_detected.keys())
     print("detection delay mean:", delay_mean)
@@ -285,12 +283,14 @@ def print_timing(row_to_print_time):
 
     if timeArray.tm_mday < 16:
         return 1
-    if timeArray.tm_hour < 12:
+    if timeArray.tm_hour < 13:
         return 1
-    if timeArray.tm_hour == 22:
+    if timeArray.tm_min < 30:
+        return 1
+    if timeArray.tm_hour > 16 and timeArray.tm_min>30:
         return 2
-    # if timeArray.tm_mon > 3 or timeArray.tm_mday >= 16:
-    # return 2
+    #if timeArray.tm_mon > 3 or timeArray.tm_mday >= 16:
+        #return 2
     return 0
 
 
@@ -322,12 +322,16 @@ min_window_len = 3  # second
 max_window_len = 1800
 timing = 0  # print time information
 
+count_suspicious = 0
+count_victim_suspicious = 0
+count_victim_normal = 0
+
 # counters for calculate the precision
 count_total = 0
-count_total_normal = 0
-count_total_abnormal = 0
-count_detected_abnormal = 0
-count_detected_normal = 0
+count_total_other = 0
+count_total_victim = 0
+count_detected_victim = 0
+count_detected_other = 0
 activity_total = {}  # record the total scan activities
 activity_detected = {}  # record the activities that system detected and also record the time
 
@@ -342,7 +346,7 @@ for log in attack_log_file:
         activity_total.update({activity_id: start_time})
 
 file_index = 0
-while file_index < len(flow_file):
+while file_index < len(flow_file) - 3:
     attribute_line = next(flow_file[file_index])
     for row in flow_file[file_index]:
 
@@ -357,20 +361,29 @@ while file_index < len(flow_file):
         elif time_to_end == 2:
             break
 
+        if check_suspicious(row) != 0:
+            count_suspicious = count_suspicious + 1
+            count_victim_suspicious = count_victim_suspicious + counter_for_victim(row_to_count_victim=row)
+        else:
+            count_victim_normal = count_victim_normal + counter_for_victim(row_to_count_victim=row)
         # step 3
         # then testify each flow(row) if its ICMP error or a TCP-RST package
         # then run the abnormal detection algorithm using dynamic time window
-        (count_a, count_n) = detect_abnormal(flow=row)
+        (count_A, count_B) = detect_abnormal(flow=row)
+        # count_A refers to the flows that victim sent.
+        # count_B refers to the flows that sent by someone who is not victim
+        # (maybe normal host or attacker, but not victim).
 
         # step 4, update all the counters for calculate the TP and FP
         count_total = count_total + 1
-        count_total_abnormal = count_total_abnormal + counter_for_abnormal(row_to_count_abnormal=row)
-        count_total_normal = count_total_normal + counter_for_normal(row_to_count_normal=row)
-        count_detected_abnormal = count_detected_abnormal + count_a
-        count_detected_normal = count_detected_normal + count_n
+        count_total_victim = count_total_victim + counter_for_victim(row_to_count_victim=row)
+        count_total_other = count_total_other + counter_for_other(row_to_count_other=row)
+        count_detected_victim = count_detected_victim + count_A
+        count_detected_other = count_detected_other + count_B
     file_index = file_index + 1
 
 # step 5, once the program ends, we can calculate the precision of the algorithm
-calculate_precision(count_total=count_total, count_total_abnormal=count_total_abnormal,
-                    count_total_normal=count_total_normal, count_detected_abnormal=count_detected_abnormal,
-                    count_detected_normal=count_detected_normal)
+calculate_precision(count_total=count_total, count_total_victim=count_total_victim,
+                    count_total_other=count_total_other, count_detected_victim=count_detected_victim,
+                    count_detected_other=count_detected_other)
+print(count_suspicious,count_victim_suspicious,count_victim_normal)
