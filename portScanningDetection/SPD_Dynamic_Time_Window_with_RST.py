@@ -104,7 +104,7 @@ def detect_abnormal(flow):
                 activity_end_test = np.mean(hosts[i].window_ewma[-5:-1])
             else:
                 activity_end_test = np.mean(hosts[i].window_ewma)
-            if get_time(flow[0]) - hosts[i].tl > 35 * activity_end_test:
+            if get_time(flow[0]) - hosts[i].tl > activity_end_test_multiplier * activity_end_test:
                 hosts.__delitem__(i)
                 isNew = True
             else:
@@ -149,7 +149,7 @@ def detect_abnormal(flow):
 
         # fix the ewma bug here. if alpha is larger than 15, we should consider if the attacker is running a faster scan
         # and then we should adjust the window length immediately.
-        if current_host.alpha > 3:
+        if current_host.alpha > alpha_max:
             # turn the current window length Td into the newest ewma window length
             current_host.Td = current_host.window_ewma[-1]
 
@@ -162,7 +162,7 @@ def detect_abnormal(flow):
         test_result = sequential_test(success_num=success_num, failed_num=failed_num, host=current_host)
         if test_result == 1:
 
-            if current_host.IP != "192.168.220.16" and current_host.IP != "192.168.220.15":
+            if current_host.IP != "192.168.220.51":
                 print("false alarm:", current_host.IP, "\n attached flow:", current_host.flows[-1])
             # if current_host.IP == "192.168.220.16":
             # print("detected.")
@@ -170,26 +170,15 @@ def detect_abnormal(flow):
             # then we should calculate the TP and FP
             # count the flows number for TP and FP
             for flow in current_host.flows:
-                if re.search('R', flow[10]) is not None:
-                    if flow[12] == "victim":
-                        c_d_A = c_d_A + 1
-                        # record the detected activity ID
-                        activity_result = activity_detected.get(flow[14])
-                        if activity_result is None:
-                            print("detected activity:", flow[14], "at time:", current_host.flows[-1][0])
-                            activity_detected.update({flow[14]: get_time(current_host.flows[-1][0])})
-                    else:
-                        c_d_B = c_d_B + 1
-                elif re.search("ICMP", flow[2]) is not None:
-                    if flow[12] == "victim":
-                        c_d_A = c_d_A + 1
-                        # record the detected activity ID
-                        activity_result = activity_detected.get(flow[14])
-                        if activity_result is None:
-                            print("detected activity:", flow[14], "at time:", current_host.flows[-1][0])
-                            activity_detected.update({flow[14]: get_time(current_host.flows[-1][0])})
-                    else:
-                        c_d_B = c_d_B + 1
+                if flow[12] == "victim":
+                    c_d_A = c_d_A + 1
+                    # record the detected activity ID
+                    activity_result = activity_detected.get(flow[14])
+                    if activity_result is None:
+                        print("detected activity:", flow[14], "at time:", current_host.flows[-1][0])
+                        activity_detected.update({flow[14]: get_time(current_host.flows[-1][0])})
+                else:
+                    c_d_B = c_d_B + 1
             current_host.ratio = 1
             current_host.flows.clear()
         # elif test_result == 2:
@@ -262,6 +251,9 @@ def calculate_precision(count_total, count_total_victim, count_total_other,
 
     TPR = count_detected_victim / count_total_victim
     FPR = count_detected_other / count_total_other
+    print("arguments:")
+    print("theta0:",theta0,"theta1:",theta1,"eta0:",eta0,"eta1:",eta1,"beta:",beta,"activity_end_test_multiplier",activity_end_test_multiplier)
+    print("alpha_max:",alpha_max ,"default_window_len:",default_window_len,"min_window_len:",min_window_len,"max_window_len:",max_window_len)
     print("count_detected_victim", count_detected_victim, "count_total_victim", count_total_victim, "TPR:", TPR)
     print("count_detected_other", count_detected_other, "count_total_other", count_total_other, "FPR:", FPR)
     print("count_total", count_total)
@@ -281,23 +273,22 @@ def print_timing(row_to_print_time):
         print("Month:", timeArray.tm_mon, "Day:", timeArray.tm_mday, ",", timing % 24, "o'clock")
         timing = timing + 1
 
-    if timeArray.tm_mday < 16:
+    '''if timeArray.tm_mday < 16:
         return 1
     if timeArray.tm_hour < 13:
         return 1
     if timeArray.tm_min < 30:
         return 1
     if timeArray.tm_hour > 16 and timeArray.tm_min>30:
-        return 2
-    #if timeArray.tm_mon > 3 or timeArray.tm_mday >= 16:
+        return 2'''
+    #if timeArray.tm_mday > 6:
         #return 2
     return 0
 
 
-attack_log_filepath = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\attack_logs\\attack_logs_intern.csv"
-filepath_basic = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\\"
-filepath_subfiles = ["CIDDS-001-internal-week1.csv", "CIDDS-001-internal-week2.csv",
-                     "CIDDS-001-internal-week3.csv", "CIDDS-001-internal-week4.csv"]
+attack_log_filepath = "D:/Python/Python37/myexperiment/portScanningDetection/CIDDS-002/attack_logs/attacks_logs_intern.csv"
+filepath_basic = "D:/Python/Python37/myexperiment/portScanningDetection/CIDDS-002/traffic/"
+filepath_subfiles = ["week1.csv", "week2.csv"]
 filepath_total = []
 
 for subfile in filepath_subfiles:
@@ -316,7 +307,9 @@ theta0 = 0.8
 theta1 = 0.2
 eta0 = 0.01
 eta1 = 99
-beta = 0.2  # beta is the attribute of the EWMA algorithm
+beta = 0.05  # beta is the attribute of the EWMA algorithm
+activity_end_test_multiplier = 20 # multiplier to test if a scan has reached its end
+alpha_max = 3 # max value of the suspicious counter in per time window
 default_window_len = 60
 min_window_len = 3  # second
 max_window_len = 1800
@@ -337,19 +330,18 @@ activity_detected = {}  # record the activities that system detected and also re
 
 attribute_line = next(attack_log_file)
 for log in attack_log_file:
-    if re.search("nmap", log[7]) is not None:
-        activity_id = log[5]
-        if activity_id == '1':
-            start_time = 1489507276.0  # the first attack start at 3.15.00:00
-        else:
-            start_time = float(get_time(log[1]))
-        activity_total.update({activity_id: start_time})
+    #if re.search("scan", log[3]) is not None:
+    activity_id = log[7]
+    #if activity_id == '1':
+        #start_time = 1489507276.0  # the first attack start at 3.15.00:00
+    #else:
+    start_time = float(get_time(log[0]))
+    activity_total.update({activity_id: start_time})
 
 file_index = 0
-while file_index < len(flow_file) - 3:
+while file_index < len(flow_file):
     attribute_line = next(flow_file[file_index])
     for row in flow_file[file_index]:
-
         # step 1, finish some filtering step
         if pre_operation(row_to_pre_operate=row):
             continue
