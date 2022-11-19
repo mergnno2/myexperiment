@@ -68,7 +68,6 @@ for r in file:
         if row[12]=="scan11\n" or row[12]=="scan44\n":
             count_abnormal=count_abnormal+1
 
-
 if flag:
     print("Yes,it consists of scanning activity.")
 print("Total flow count:",count)
