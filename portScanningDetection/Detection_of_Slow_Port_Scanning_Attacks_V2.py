@@ -105,13 +105,19 @@ def print_timing(row_to_print_time):
     return False
 
 
-filepath_week_1 = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week1.csv"
-filepath_week_2 = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-week2.csv"
+filepath = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\traffic\OpenStack\CIDDS-001-internal-"
+filepath_week_1 = "week1.csv"
+filepath_week_2 = "week2.csv"
+filepath_week_3 = "week3.csv"
+filepath_week_4 = "week4.csv"
 filepath_attack_log = "D:\Python\Python37\myexperiment\portScanningDetection\CIDDS-001\\attack_logs\\attack_logs_intern.csv"
 
 # open the original csv data file
-flow_file_week_1 = csv.reader(open(filepath_week_1, 'r'))
-flow_file_week_2 = csv.reader(open(filepath_week_2, 'r'))
+flow_file_week_1 = csv.reader(open(filepath + filepath_week_1, 'r'))
+flow_file_week_2 = csv.reader(open(filepath + filepath_week_2, 'r'))
+flow_file_week_3 = csv.reader(open(filepath + filepath_week_3, 'r'))
+flow_file_week_4 = csv.reader(open(filepath + filepath_week_4, 'r'))
+flow_files = [flow_file_week_1, flow_file_week_2, flow_file_week_3, flow_file_week_4]
 log_file = csv.reader(open(filepath_attack_log, 'r'))
 # write_file = csv.writer(open(filepath2, 'w', newline=""))
 attribute_line = next(log_file)
@@ -133,65 +139,39 @@ count_total_abnormal = 0
 count_detected_abnormal = 0
 count_detected_normal = 0
 activity_IDs = {}  # record the activity ID that system detected
+k = 0
+while k < len(flow_files):
+    attribute_line = next(flow_files[k])
+    start_time = get_time(next(flow_files[k])[0])
+    end_time = start_time
+    for row in flow_files[k]:
 
-attribute_line = next(flow_file_week_1)
-start_time = get_time(next(flow_file_week_1)[0])
-end_time = start_time
-for row in flow_file_week_1:
+        # step 1, finish some filtering step
+        if pre_operation(row_to_pre_operate=row):
+            continue
 
-    # step 1, finish some filtering step
-    if pre_operation(row_to_pre_operate=row):
-        continue
+        # step 2, print the timing information
+        time_to_end = print_timing(row_to_print_time=row)
+        if time_to_end:
+            break
 
-    # step 2, print the timing information
-    time_to_end = print_timing(row_to_print_time=row)
-    if time_to_end:
-        break
+        flows_in_window.append(row)
+        end_time = get_time(row[0])
+        # step 3
+        if end_time - start_time > 20:
+            for f in flows_in_window:
+                (count_a, count_n) = check_flow(flow=f)
 
-    flows_in_window.append(row)
-    end_time = get_time(row[0])
-    # step 3
-    if end_time - start_time > 20:
-        for f in flows_in_window:
-            (count_a, count_n) = check_flow(flow=f)
+                # step 4, update all the counters for calculate the TP and FP
+                count_total = count_total + 1
+                count_total_abnormal = count_total_abnormal + counter_for_abnormal(row_to_count_abnormal=f)
+                count_total_normal = count_total_normal + counter_for_normal(row_to_count_normal=f)
+                count_detected_abnormal = count_detected_abnormal + count_a
+                count_detected_normal = count_detected_normal + count_n
 
-            # step 4, update all the counters for calculate the TP and FP
-            count_total = count_total + 1
-            count_total_abnormal = count_total_abnormal + counter_for_abnormal(row_to_count_abnormal=f)
-            count_total_normal = count_total_normal + counter_for_normal(row_to_count_normal=f)
-            count_detected_abnormal = count_detected_abnormal + count_a
-            count_detected_normal = count_detected_normal + count_n
-
-        flows_in_window.clear()
-        start_time = end_time
-
-attribute_line = next(flow_file_week_2)
-for row in flow_file_week_2:
-    # step 1, finish some filtering step
-    if pre_operation(row_to_pre_operate=row):
-        continue
-
-    # step 2, print the timing information
-    time_to_end = print_timing(row_to_print_time=row)
-    if time_to_end:
-        break
-
-    flows_in_window.append(row)
-    end_time = get_time(row[0])
-    # step 3
-    if end_time - start_time > 20:
-        for f in flows_in_window:
-            (count_a, count_n) = check_flow(flow=f)
-
-            # step 4, update all the counters for calculate the TP and FP
-            count_total = count_total + 1
-            count_total_abnormal = count_total_abnormal + counter_for_abnormal(row_to_count_abnormal=f)
-            count_total_normal = count_total_normal + counter_for_normal(row_to_count_normal=f)
-            count_detected_abnormal = count_detected_abnormal + count_a
-            count_detected_normal = count_detected_normal + count_n
-
-        flows_in_window.clear()
-        start_time = end_time
+            flows_in_window.clear()
+            start_time = end_time
+    k = k + 1
 
 # step 5, once the program ends, we can calculate the precision of the algorithm
 calculate_precision(count_total=count_total, count_total_abnormal=count_total_abnormal,
