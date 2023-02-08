@@ -60,6 +60,7 @@ class Host(object):
         # likelihood ratio of sequential test
         self.ratio = ratio
 
+
 class SimpleSwitchWithScanDetection(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
@@ -84,16 +85,51 @@ class SimpleSwitchWithScanDetection(app_manager.RyuApp):
         # correctly.  The bug has been fixed in OVS v2.1.0.
 
         # step1, once the switch is connected, send default flow entries and group entries.
-        # table 0
-        # default flow entries
-        # 1.table-miss entry
+
+        if ev.msg.datapath.id == 4:
+            # table 0
+            # default flow entries
+            # 1.table-miss entry
+            match = parser.OFPMatch()
+            actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
+                                              ofproto.OFPCML_NO_BUFFER)]
+            inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
+                                                 actions)]
+            self.add_flow(datapath=datapath, table_id=0, priority=0, match=match, inst=inst)
+            self.logger.info("--------End of Initializing--------")
+            return
+
+        match = parser.OFPMatch(in_port=1)
+        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
+                                          ofproto.OFPCML_NO_BUFFER)]
+
+        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
+                                             actions), parser.OFPInstructionGotoTable(1)]
+        self.add_flow(datapath=datapath, table_id=0, priority=1, match=match, inst=inst)
+
+        match = parser.OFPMatch(in_port=2)
+        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
+                                          ofproto.OFPCML_NO_BUFFER)]
+
+        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
+                                             actions), parser.OFPInstructionGotoTable(1)]
+        self.add_flow(datapath=datapath, table_id=0, priority=1, match=match, inst=inst)
+
+        match = parser.OFPMatch(in_port=3)
+        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
+                                          ofproto.OFPCML_NO_BUFFER)]
+
+        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
+                                             actions), parser.OFPInstructionGotoTable(1)]
+        self.add_flow(datapath=datapath, table_id=0, priority=1, match=match, inst=inst)
+
+        # table 1 table-miss entry
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
                                           ofproto.OFPCML_NO_BUFFER)]
         inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
                                              actions)]
-        self.add_flow(datapath=datapath, table_id=0, priority=0, match=match, inst=inst)
-        self.logger.info("Table-0-Table-miss set.")
+        self.add_flow(datapath=datapath, table_id=1, priority=0, match=match, inst=inst)
         self.logger.info("--------End of Initializing--------")
 
     def add_flow(self, datapath, table_id, priority, match, inst, buffer_id=None):
@@ -215,7 +251,6 @@ class SimpleSwitchWithScanDetection(app_manager.RyuApp):
 
         msg = ev.msg
         pkt = ryu.lib.packet.packet.Packet(msg.data)
-        ipv4_pkt = pkt.get_protocols(ryu.lib.packet.ipv4.ipv4)[0]
         eth = pkt.get_protocols(ethernet.ethernet)[0]
         src_mac = eth.src
         dst_mac = eth.dst
@@ -225,18 +260,21 @@ class SimpleSwitchWithScanDetection(app_manager.RyuApp):
         icmp_pkt = pkt.get_protocols(ryu.lib.packet.icmp.icmp)
         if tcp_pkt:
             dst_port = str(tcp_pkt[0].dst_port)
-        elif icmp_pkt:
+        else:
             dst_port = "-1"
 
-        if ev.msg.datapath.id != 4:
+        if ev.msg.datapath.id == 4:
+            self.handle_simple_switch(ev=ev, table_id=0)
+        else:
             # it is from the edge switch
-            if [src_mac, dst_mac, dst_port] not in total_entries:
-                total_entries.append([src_mac, dst_mac, dst_port])
-            total_collected_counter = total_collected_counter + 1
-            if str(src_mac) == "00:00:00:00:00:01" or str(dst_mac) == "00:00:00:00:00:01":
-                scan_related_counter = scan_related_counter + 1
-
-        self.handle_simple_switch(ev=ev, table_id=0)
+            if ev.msg.table_id == 0:
+                if [src_mac, dst_mac, dst_port] not in total_entries:
+                    total_entries.append([src_mac, dst_mac, dst_port])
+                total_collected_counter = total_collected_counter + 1
+                if str(src_mac) == "00:00:00:00:00:01" or str(dst_mac) == "00:00:00:00:00:01":
+                    scan_related_counter = scan_related_counter + 1
+            else:
+                self.handle_simple_switch(ev=ev, table_id=1)
 
         return
 
