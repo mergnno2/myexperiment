@@ -56,8 +56,9 @@ def calculate_delay(file_path):
 
 
 file_paths = []
-for i in range(1, 3):
-    file_paths.append("C:\\Users\\Supernova\\Desktop\\防止意外发生的部分实验结果存储\\第" + str(i) + "组实验")
+for i in range(1, 6):
+    file_paths.append("C:\\Users\\Supernova\\Desktop\\毕业论文补充实验-后续会整合\\结果\\"
+                      "附加实验-共5组-3种检测算法对比\\第" + str(i) + "组实验")
 
 for group in file_paths:
     calculate_delay(group + "\\mine")
